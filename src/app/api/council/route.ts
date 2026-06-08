@@ -1,39 +1,133 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runCouncil } from "@/core/runCouncil";
 import { logger } from "@/core/logger";
+import {
+  ValidationError,
+  ModeNotFoundError,
+  ProviderRetryError,
+  ProviderTimeoutError,
+} from "@/core/errors";
 import { z } from "zod";
 
 const requestSchema = z.object({
   input: z
     .string()
     .min(1, "Input cannot be empty")
-    .max(10000, "Input too long"),
-  mode: z.enum(["decision", "idea", "criticalReview", "learning", "technical", "answer"]),
+    .max(10000, "Input too long (max 10 000 characters)"),
+  mode: z.enum([
+    "decision",
+    "idea",
+    "criticalReview",
+    "learning",
+    "technical",
+    "answer",
+  ]),
 });
+
+/** Map error types to HTTP status codes and user-friendly messages */
+function errorResponse(error: unknown) {
+  if (error instanceof ValidationError) {
+    return {
+      status: 400,
+      body: {
+        error: "Invalid input",
+        message: error.message,
+        type: "validation",
+      },
+    };
+  }
+
+  if (error instanceof ModeNotFoundError) {
+    return {
+      status: 404,
+      body: {
+        error: "Unknown mode",
+        message: error.message,
+        type: "not_found",
+      },
+    };
+  }
+
+  if (error instanceof ProviderTimeoutError) {
+    return {
+      status: 504,
+      body: {
+        error: "Request timed out",
+        message:
+          "The AI provider took too long to respond. Please try again in a moment.",
+        type: "timeout",
+        retryable: true,
+      },
+    };
+  }
+
+  if (error instanceof ProviderRetryError) {
+    return {
+      status: 503,
+      body: {
+        error: "Service temporarily unavailable",
+        message:
+          "The AI provider is currently unavailable after multiple retries. Please try again later.",
+        type: "provider_unavailable",
+        retryable: true,
+      },
+    };
+  }
+
+  // Generic fallback
+  return {
+    status: 500,
+    body: {
+      error: "Unexpected error",
+      message: "An unexpected error occurred. Please try again.",
+      type: "server_error",
+      retryable: true,
+    },
+  };
+}
 
 export async function POST(request: NextRequest) {
   const start = performance.now();
   logger.info("API request received", { method: "POST", path: "/api/council" });
 
+  // Parse JSON body
+  let body: unknown;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      {
+        error: "Invalid request",
+        message: "Request body must be valid JSON.",
+        type: "validation",
+      },
+      { status: 400 },
+    );
+  }
 
-    const validation = requestSchema.safeParse(body);
-    if (!validation.success) {
-      logger.info("API validation failed", {
-        errors: validation.error.flatten().fieldErrors,
-      });
-      return NextResponse.json(
-        { error: "Validation failed", details: validation.error.flatten() },
-        { status: 400 },
-      );
-    }
+  // Validate input
+  const validation = requestSchema.safeParse(body);
+  if (!validation.success) {
+    const fields = validation.error.flatten().fieldErrors;
+    logger.info("API validation failed", { errors: fields });
+    return NextResponse.json(
+      {
+        error: "Validation failed",
+        message: formatValidationErrors(fields),
+        details: fields,
+        type: "validation",
+      },
+      { status: 400 },
+    );
+  }
 
-    logger.debug("API request validated", {
-      mode: validation.data.mode,
-      inputLength: validation.data.input.length,
-    });
+  logger.debug("API request validated", {
+    mode: validation.data.mode,
+    inputLength: validation.data.input.length,
+  });
 
+  // Run council
+  try {
     const result = await runCouncil({
       input: validation.data.input,
       mode: validation.data.mode,
@@ -51,38 +145,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     const durationMs = Math.round(performance.now() - start);
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-    const errorName = error instanceof Error ? error.name : "Error";
+    const { status, body: errorBody } = errorResponse(error);
 
     logger.error("API request failed", {
       durationMs,
-      error: errorMessage,
-      errorName,
+      status,
+      error: errorBody.error,
+      type: errorBody.type,
+      originalError: error instanceof Error ? error.message : String(error),
     });
 
-    if (error instanceof Error) {
-      if (error.name === "ValidationError") {
-        return NextResponse.json({ error: error.message }, { status: 400 });
-      }
-      if (error.name === "ModeNotFoundError") {
-        return NextResponse.json({ error: error.message }, { status: 404 });
-      }
-    }
-
-    return NextResponse.json(
-      { error: "An unexpected error occurred" },
-      { status: 500 },
-    );
+    return NextResponse.json(errorBody, { status });
   }
 }
 
 export async function GET() {
-  return NextResponse.json({
-    status: "ok",
-    message: "LLM Council API is running",
-    endpoints: {
-      POST: "/api/council — Run a council analysis",
-    },
-  });
+  return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+}
+
+/** Convert zod field errors into a human-readable summary */
+function formatValidationErrors(fields: Record<string, string[]>): string {
+  const messages: string[] = [];
+  for (const [field, errors] of Object.entries(fields)) {
+    for (const err of errors) {
+      messages.push(`${field}: ${err}`);
+    }
+  }
+  return messages.join("; ");
 }

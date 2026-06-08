@@ -9,36 +9,114 @@ import type {
 } from "@/core/types";
 import { Markdown } from "./components/Markdown";
 
-const MODES: { id: CouncilModeId; name: string; description: string }[] = [
+const MODES: {
+  id: CouncilModeId;
+  name: string;
+  description: string;
+  agents: { name: string; role: string }[];
+  bestFor: string[];
+}[] = [
   {
     id: "decision",
     name: "Decision Council",
     description: "Analyze a decision from multiple perspectives",
+    agents: [
+      { name: "Optimist", role: "Finds opportunities and positive outcomes" },
+      { name: "Sceptic", role: "Challenges assumptions and prevents poor advice" },
+      { name: "Risk Analyst", role: "Evaluates practical risks and downsides" },
+      { name: "Pragmatist", role: "Focuses on realistic next actions" },
+      { name: "Final Judge", role: "Synthesizes into a final recommendation" },
+    ],
+    bestFor: [
+      "Should I do X or Y?",
+      "Evaluating a major life or career choice",
+      "Weighing pros and cons of a decision",
+    ],
   },
   {
     id: "idea",
     name: "Idea Council",
     description: "Evaluate an idea's potential and feasibility",
+    agents: [
+      { name: "Creative Thinker", role: "Explores creative possibilities" },
+      { name: "Market Analyst", role: "Evaluates audience and demand" },
+      { name: "Technical Feasibility", role: "Assesses implementation complexity" },
+      { name: "User Perspective", role: "Represents end-user needs" },
+      { name: "Final Synthesizer", role: "Synthesizes into a clear recommendation" },
+    ],
+    bestFor: [
+      "Is this idea worth pursuing?",
+      "Evaluating a product or business idea",
+      "Assessing creative or strategic concepts",
+    ],
   },
   {
     id: "criticalReview",
     name: "Critical Review",
     description: "Review text, arguments, or proposals",
+    agents: [
+      { name: "Logic Reviewer", role: "Checks logical structure and reasoning" },
+      { name: "Clarity Reviewer", role: "Evaluates readability and clarity" },
+      { name: "Evidence Reviewer", role: "Assesses quality of evidence and sources" },
+      { name: "Sceptic", role: "Challenges weak points and assumptions" },
+      { name: "Final Editor", role: "Produces an overall quality assessment" },
+    ],
+    bestFor: [
+      "Reviewing an essay, article, or proposal",
+      "Checking argument quality and logic",
+      "Getting feedback on written work",
+    ],
   },
   {
     id: "learning",
     name: "Learning Council",
     description: "Get educational explanations",
+    agents: [
+      { name: "Teacher", role: "Explains concepts step by step" },
+      { name: "Beginner", role: "Asks clarifying questions" },
+      { name: "Examiner", role: "Tests understanding with key questions" },
+      { name: "Example Generator", role: "Provides practical examples" },
+      { name: "Final Explainer", role: "Synthesizes a comprehensive summary" },
+    ],
+    bestFor: [
+      "Learning a new concept or topic",
+      "Understanding complex subjects",
+      "Getting study guidance and examples",
+    ],
   },
   {
     id: "technical",
     name: "Technical Council",
     description: "Evaluate technical topics and architecture",
+    agents: [
+      { name: "Software Architect", role: "Evaluates architecture and design" },
+      { name: "Security Reviewer", role: "Identifies security concerns" },
+      { name: "Performance Reviewer", role: "Assesses performance implications" },
+      { name: "Maintainability Reviewer", role: "Evaluates long-term maintainability" },
+      { name: "Final Recommender", role: "Synthesizes technical recommendations" },
+    ],
+    bestFor: [
+      "Evaluating a technical design or architecture",
+      "Code or system review",
+      "Technical decision-making",
+    ],
   },
   {
     id: "answer",
     name: "Answer Council",
-    description: "Get a direct answer to a question with supporting analysis",
+    description: "Get a direct answer with supporting analysis",
+    agents: [
+      { name: "Subject Matter Expert", role: "Provides domain expertise" },
+      { name: "Contrarian", role: "Challenges the consensus view" },
+      { name: "Contextualizer", role: "Adds relevant context and nuance" },
+      { name: "Synthesizer", role: "Combines perspectives into a coherent answer" },
+      { name: "Final Summarizer", role: "Produces a clear, direct answer" },
+    ],
+    bestFor: [
+      "Getting a well-reasoned answer to a complex question",
+      "Understanding multiple viewpoints on a topic",
+      "Fact-checking and balanced analysis",
+    ],
   },
 ];
 
@@ -47,12 +125,31 @@ export default function Home() {
   const [mode, setMode] = useState<CouncilModeId>("decision");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<RunCouncilResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{
+    title: string;
+    message: string;
+    type: string;
+    retryable: boolean;
+  } | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const runAnalysis = useCallback(async () => {
-    if (!input.trim()) return;
+  // Inline validation
+  const validateInput = useCallback((value: string): string | null => {
+    if (!value.trim()) return "Please enter a question or problem to analyze.";
+    if (value.trim().length < 3) return "Please enter at least 3 characters.";
+    if (value.length > 10000) return "Input is too long (max 10 000 characters).";
+    return null;
+  }, []);
 
+  const runAnalysis = useCallback(async () => {
+    // Client-side validation
+    const validationError = validateInput(input);
+    if (validationError) {
+      setInputError(validationError);
+      return;
+    }
+    setInputError(null);
     setLoading(true);
     setError(null);
     setResult(null);
@@ -67,16 +164,29 @@ export default function Home() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Analysis failed");
+        setError({
+          title: data.error || "Error",
+          message: data.message || "Something went wrong.",
+          type: data.type || "unknown",
+          retryable: data.retryable ?? false,
+        });
+        return;
       }
 
       setResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      // Network or parse error
+      setError({
+        title: "Connection error",
+        message:
+          "Unable to reach the server. Please check your connection and try again.",
+        type: "network",
+        retryable: true,
+      });
     } finally {
       setLoading(false);
     }
-  }, [input, mode]);
+  }, [input, mode, validateInput]);
 
   const copyResult = useCallback(() => {
     if (!result) return;
@@ -134,86 +244,132 @@ export default function Home() {
       {/* Main Content */}
       <main className="flex-1 px-6 py-8">
         <div className="max-w-5xl mx-auto space-y-8">
-          {/* Input Section */}
-          <section className="space-y-4">
-            <div>
-              <label htmlFor="council-input" className="block text-sm font-medium mb-2">
-                Your Question, Problem, or Idea
-              </label>
-              <textarea
-                id="council-input"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Enter your question, problem, idea, or text for analysis..."
-                className="w-full h-32 px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    runAnalysis();
-                  }
-                }}
-              />
-            </div>
-
-            {/* Mode Selection */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Analysis Mode</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {MODES.map((m) => (
-                  <button
-                    key={m.id}
-                    onClick={() => setMode(m.id)}
-                    className={`text-left px-4 py-3 rounded-lg border transition-all ${
-                      mode === m.id
-                        ? "border-blue-500 bg-blue-500/10 ring-1 ring-blue-500"
-                        : "border-zinc-700 bg-zinc-900 hover:border-zinc-500"
-                    }`}
-                  >
-                    <div className="font-medium text-sm">{m.name}</div>
-                    <div className="text-xs text-zinc-400 mt-1">{m.description}</div>
-                  </button>
-                ))}
+          {/* Input Section — two column layout */}
+          <section className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+            {/* Left column: input + mode selector + run */}
+            <div className="space-y-4 min-w-0">
+              <div>
+                <label htmlFor="council-input" className="block text-sm font-medium mb-2">
+                  Your Question, Problem, or Idea
+                </label>
+                <textarea
+                  id="council-input"
+                  value={input}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    if (inputError) setInputError(null);
+                  }}
+                  placeholder="Enter your question, problem, idea, or text for analysis..."
+                  className={`w-full h-32 px-4 py-3 bg-zinc-900 border rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
+                    inputError ? "border-amber-500/50" : "border-zinc-700"
+                  }`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      runAnalysis();
+                    }
+                  }}
+                />
+                {inputError && (
+                  <p className="mt-1.5 text-sm text-amber-400 flex items-center gap-1.5">
+                    <span>⚠</span> {inputError}
+                  </p>
+                )}
               </div>
+
+              {/* Mode Selection — compact buttons */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Analysis Mode</label>
+                <div className="flex flex-wrap gap-2">
+                  {MODES.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => setMode(m.id)}
+                      className={`px-3 py-1.5 text-sm rounded-md border transition-all ${
+                        mode === m.id
+                          ? "border-blue-500 bg-blue-500/10 text-blue-300 ring-1 ring-blue-500"
+                          : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Run Button */}
+              <button
+                onClick={runAnalysis}
+                disabled={loading || !input.trim()}
+                className="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-medium rounded-lg transition-colors"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Analyzing...
+                  </span>
+                ) : (
+                  "🏛️ Run Council Analysis"
+                )}
+              </button>
+              <p className="text-xs text-zinc-500">
+                Press Ctrl+Enter to run. Analysis may take 10-30 seconds.
+              </p>
             </div>
 
-            {/* Run Button */}
-            <button
-              onClick={runAnalysis}
-              disabled={loading || !input.trim()}
-              className="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-medium rounded-lg transition-colors"
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                      fill="none"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
-                  </svg>
-                  Running Council Analysis...
-                </span>
-              ) : (
-                "🏛️ Run Council Analysis"
-              )}
-            </button>
-            <p className="text-xs text-zinc-500">
-              Press Ctrl+Enter to run. Analysis may take 10-30 seconds.
-            </p>
+            {/* Right column: mode details panel */}
+            <div className="lg:sticky lg:top-8 lg:self-start">
+              <ModeDetailsPanel mode={MODES.find((m) => m.id === mode)!} />
+            </div>
           </section>
 
           {/* Error */}
           {error && (
-            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400">
-              <strong>Error:</strong> {error}
+            <div
+              className={`p-4 rounded-lg border ${
+                error.type === "validation"
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                  : error.type === "timeout"
+                    ? "bg-orange-500/10 border-orange-500/30 text-orange-300"
+                    : "bg-red-500/10 border-red-500/30 text-red-400"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <p className="font-semibold">{error.title}</p>
+                  <p className="text-sm mt-1 opacity-80">{error.message}</p>
+                </div>
+                {error.retryable && (
+                  <button
+                    onClick={runAnalysis}
+                    disabled={loading}
+                    className="shrink-0 px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-md transition-colors disabled:opacity-50"
+                  >
+                    ↻ Retry
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="border border-zinc-700 rounded-lg overflow-hidden">
+              <div className="p-8 bg-zinc-900 flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="w-12 h-12 rounded-full border-4 border-zinc-700 border-t-blue-500 animate-spin" />
+                </div>
+                <div className="text-center">
+                  <p className="text-zinc-200 font-medium">Council in Session</p>
+                  <p className="text-sm text-zinc-400 mt-1">
+                    Specialist agents are analyzing your input...
+                  </p>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                </div>
+              </div>
             </div>
           )}
 
@@ -253,6 +409,51 @@ export default function Home() {
         Multi-Agent LLM Council — This tool supports analysis by showing multiple perspectives.
         It does not guarantee correctness.
       </footer>
+    </div>
+  );
+}
+
+function ModeDetailsPanel({ mode }: { mode: (typeof MODES)[number] }) {
+  return (
+    <div className="border border-zinc-700 rounded-lg bg-zinc-900 overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-zinc-800">
+        <h3 className="font-semibold text-sm text-zinc-100">{mode.name}</h3>
+        <p className="text-xs text-zinc-400 mt-1">{mode.description}</p>
+      </div>
+
+      {/* Agents */}
+      <div className="px-4 py-3 border-b border-zinc-800">
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+          Agents ({mode.agents.length})
+        </p>
+        <div className="space-y-2">
+          {mode.agents.map((agent, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <span className="text-blue-400 text-xs mt-0.5 shrink-0">•</span>
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-zinc-200">{agent.name}</div>
+                <div className="text-xs text-zinc-500 leading-relaxed">{agent.role}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Best for */}
+      <div className="px-4 py-3">
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+          Best for
+        </p>
+        <ul className="space-y-1.5">
+          {mode.bestFor.map((useCase, i) => (
+            <li key={i} className="text-xs text-zinc-400 flex items-start gap-2">
+              <span className="text-green-400 shrink-0">✓</span>
+              <span className="leading-relaxed">{useCase}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
