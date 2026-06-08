@@ -9,6 +9,15 @@ import {
 } from "@/core/errors";
 import { z } from "zod";
 
+const customAgentSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).max(100),
+  role: z.string().min(1).max(200),
+  systemPrompt: z.string().min(1).max(20000),
+  isFinalJudge: z.boolean().optional(),
+  disabled: z.boolean().optional(),
+});
+
 const requestSchema = z.object({
   input: z
     .string()
@@ -22,6 +31,7 @@ const requestSchema = z.object({
     "technical",
     "answer",
   ]),
+  customAgents: z.record(z.string(), customAgentSchema).optional(),
 });
 
 /** Map error types to HTTP status codes and user-friendly messages */
@@ -131,6 +141,7 @@ export async function POST(request: NextRequest) {
     const result = await runCouncil({
       input: validation.data.input,
       mode: validation.data.mode,
+      customAgents: validation.data.customAgents,
     });
 
     const durationMs = Math.round(performance.now() - start);

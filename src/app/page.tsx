@@ -6,8 +6,11 @@ import type {
   RunCouncilResult,
   AgentResponse,
   FinalReport,
+  CustomAgent,
 } from "@/core/types";
 import { Markdown } from "./components/Markdown";
+import { AgentCustomizer } from "./components/AgentCustomizer";
+import { getModeAgents, getAllAgentTemplates } from "./agentData";
 
 const MODES: {
   id: CouncilModeId;
@@ -133,6 +136,7 @@ export default function Home() {
   } | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [customAgents, setCustomAgents] = useState<Record<string, CustomAgent>>({});
 
   // Inline validation
   const validateInput = useCallback((value: string): string | null => {
@@ -155,10 +159,14 @@ export default function Home() {
     setResult(null);
 
     try {
+      const body: Record<string, unknown> = { input: input.trim(), mode };
+      if (Object.keys(customAgents).length > 0) {
+        body.customAgents = customAgents;
+      }
       const response = await fetch("/api/council", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: input.trim(), mode }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
@@ -174,7 +182,7 @@ export default function Home() {
       }
 
       setResult(data);
-    } catch (err) {
+    } catch {
       // Network or parse error
       setError({
         title: "Connection error",
@@ -186,7 +194,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [input, mode, validateInput]);
+  }, [input, mode, customAgents, validateInput]);
 
   const copyResult = useCallback(() => {
     if (!result) return;
@@ -295,6 +303,13 @@ export default function Home() {
                   ))}
                 </div>
               </div>
+
+              {/* Agent Customizer */}
+              <AgentCustomizer
+                defaultAgents={getModeAgents(mode)}
+                allTemplates={getAllAgentTemplates()}
+                onChange={setCustomAgents}
+              />
 
               {/* Run Button */}
               <button

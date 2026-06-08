@@ -1,5 +1,4 @@
 import type {
-  CouncilModeId,
   CouncilAgent,
   AgentResponse,
   FinalReport,
@@ -28,6 +27,75 @@ const JUDGE_RETRY_BASE_DELAY_MS = 1000;
 
 function generateId(): string {
   return `council-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
+/**
+ * Merges user-provided custom agent overrides into a council mode.
+ * Agents with `enabled: false` are filtered out entirely.
+ * Returns a new mode object with overridden agents where matching ids are found.
+ */
+function mergeCustomAgents(
+  mode: ReturnType<typeof getMode>,
+  customAgents: RunCouncilInput["customAgents"],
+): ReturnType<typeof getMode> {
+  if (!customAgents || Object.keys(customAgents).length === 0) return mode;
+
+  const mergedAgents = mode.agents
+    .map((agent) => {
+      const override = customAgents[agent.id];
+      if (!override) return agent;
+      return { ...agent, ...override };
+    })
+    .filter((agent) => agent.disabled !== true);
+
+  return { ...mode, agents: mergedAgents };
+}
+
+/**
+ * Normalizes judge configuration after customizations.
+ * - If multiple judges are set, keeps only the first as judge and demotes the rest to specialists.
+ * - If zero judges, logs a warning — the run will proceed in specialist-only mode (fallback report).
+ */
+function normalizeJudges(
+  mode: ReturnType<typeof getMode>,
+  runId: string,
+): ReturnType<typeof getMode> {
+  const judgeIndices: number[] = [];
+  mode.agents.forEach((a, i) => {
+    if (a.isFinalJudge) judgeIndices.push(i);
+  });
+
+  if (judgeIndices.length === 0) {
+    logger.info(
+      "No judge agent defined after customizations — will use fallback report",
+      {
+        runId,
+        mode: mode.id,
+      },
+    );
+    return mode;
+  }
+
+  if (judgeIndices.length > 1) {
+    logger.info(
+      "Multiple judges detected — keeping the first, demoting others to specialists",
+      {
+        runId,
+        mode: mode.id,
+        judgeCount: judgeIndices.length,
+        keptJudge: mode.agents[judgeIndices[0]].name,
+        demoted: judgeIndices.slice(1).map((i) => mode.agents[i].name),
+      },
+    );
+    // Demote all judges except the first
+    const demoted = new Set(judgeIndices.slice(1));
+    const normalizedAgents = mode.agents.map((a, i) =>
+      demoted.has(i) ? { ...a, isFinalJudge: false } : a,
+    );
+    return { ...mode, agents: normalizedAgents };
+  }
+
+  return mode;
 }
 
 function delay(ms: number): Promise<void> {
@@ -389,6 +457,12 @@ export async function runCouncil(
   } catch {
     throw new ModeNotFoundError(input.mode);
   }
+
+  // Apply any user-provided agent customizations
+  mode = mergeCustomAgents(mode, input.customAgents);
+
+  // Normalize judge configuration after customizations
+  mode = normalizeJudges(mode, runId);
 
   logger.info("Council mode loaded", {
     runId,

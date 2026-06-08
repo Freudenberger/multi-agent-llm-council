@@ -15,6 +15,8 @@ export type CouncilAgent = {
   systemPrompt: string;
   /** If true, this agent runs after all specialists have completed. */
   isFinalJudge?: boolean;
+  /** If true, this agent is excluded from the council run. Defaults to false. */
+  disabled?: boolean;
 };
 
 export type CouncilMode = {
@@ -64,9 +66,22 @@ export type CouncilRun = {
   createdAt: string;
 };
 
+/** User-provided agent override — only name/role/prompt can be customized. */
+export type CustomAgent = {
+  id: string;
+  name: string;
+  role: string;
+  systemPrompt: string;
+  isFinalJudge?: boolean;
+  /** If true, this agent is excluded from the council run. Defaults to false. */
+  disabled?: boolean;
+};
+
 export type RunCouncilInput = {
   input: string;
   mode: CouncilModeId;
+  /** Optional per-agent overrides keyed by agent id. */
+  customAgents?: Record<string, CustomAgent>;
 };
 
 export type RunCouncilResult = {
