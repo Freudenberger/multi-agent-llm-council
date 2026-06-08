@@ -8,7 +8,7 @@ const requestSchema = z.object({
     .string()
     .min(1, "Input cannot be empty")
     .max(10000, "Input too long"),
-  mode: z.enum(["decision", "idea", "criticalReview", "learning", "technical"]),
+  mode: z.enum(["decision", "idea", "criticalReview", "learning", "technical", "answer"]),
 });
 
 export async function POST(request: NextRequest) {

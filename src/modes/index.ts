@@ -81,6 +81,19 @@ export const councilModes: Record<CouncilModeId, CouncilMode> = {
       "final-recommender",
     ),
   },
+  answer: {
+    id: "answer",
+    name: "Answer Council",
+    description:
+      "Provides a comprehensive answer to a question by combining multiple perspectives.",
+    agents: buildAgents(
+      "subject-matter-expert",
+      "contrarian",
+      "contextualizer",
+      "synthesizer",
+      "final-summarizer",
+    ),
+  },
 };
 
 export function getMode(modeId: CouncilModeId): CouncilMode {

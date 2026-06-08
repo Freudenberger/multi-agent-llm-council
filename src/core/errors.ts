@@ -30,3 +30,31 @@ export class ValidationError extends CouncilError {
     this.name = "ValidationError";
   }
 }
+
+/**
+ * Error thrown when all retry attempts to the LLM provider have been exhausted.
+ */
+export class ProviderRetryError extends CouncilError {
+  constructor(
+    message: string,
+    public readonly attempts: number,
+    public readonly cause?: Error,
+  ) {
+    super(message);
+    this.name = "ProviderRetryError";
+  }
+}
+
+/**
+ * Error thrown when a single request to the LLM provider exceeds the timeout.
+ */
+export class ProviderTimeoutError extends CouncilError {
+  constructor(
+    message: string,
+    public readonly timeoutMs: number,
+    public readonly cause?: Error,
+  ) {
+    super(message);
+    this.name = "ProviderTimeoutError";
+  }
+}

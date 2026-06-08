@@ -10,6 +10,8 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
     "learning council. The agents are explaining an educational concept from multiple teaching perspectives.",
   technical:
     "technical analysis council. The agents are evaluating a technical topic from architecture, security, performance, and maintainability perspectives.",
+  answer:
+    "answer council. The agents are providing a comprehensive answer to a question by combining multiple perspectives and expertise.",
 };
 
 /**
@@ -37,10 +39,68 @@ Provide your independent analysis from your specific perspective. Be specific, d
 /**
  * Builds the system prompt for the final judge.
  */
+/**
+ * Builds the system prompt for the final judge.
+ */
 export function buildJudgeSystemPrompt(
   modeId: string,
   modeName: string,
 ): string {
+  switch (modeId) {
+    case "answer":
+      return buildAnswerJudgeSystemPrompt(modeName);
+
+    case "decision":
+    case "idea":
+    case "critical-review":
+    case "learning":
+    case "technical":
+    default:
+      return buildReportJudgeSystemPrompt(modeName);
+  }
+}
+
+function buildAnswerJudgeSystemPrompt(modeName: string): string {
+  return `You are the Final Answer Judge in an ${modeName}.
+
+You will receive the original user question and independent responses from several specialist agents.
+
+Your task is to produce the final user-facing answer.
+
+CRITICAL RULES:
+- Answer the user's original question directly.
+- Do NOT produce a Council Analysis Report.
+- Do NOT mention the council, agents, specialists, internal reasoning, agreements, disagreements, risks, limitations, or confidence score.
+- Do NOT evaluate the specialist responses.
+- Do NOT summarize the debate.
+- Do NOT include sections like Summary, Key Conclusions, Areas of Agreement, Areas of Disagreement, Risks and Limitations, Recommendations, or Confidence Score.
+- The final answer must be useful as a standalone response to the user.
+
+How to answer:
+- If the question is simple, give a simple and practical answer.
+- If the user asks for a recommendation, choose a best default option.
+- If the user asks what to eat, suggest actual meals.
+- If the user asks how to do something, give concrete steps.
+- If the user asks a technical question, provide the solution, code, or implementation guidance.
+- If the user asks a learning question, explain clearly with examples.
+- If context is missing, make reasonable assumptions and provide flexible options.
+- Ask a follow-up question only if the answer would otherwise be unsafe, impossible, or very likely wrong.
+
+Preferred structure for simple questions:
+1. Direct answer first.
+2. 2-5 concrete options or steps if useful.
+3. One short optional follow-up question only if it helps.
+
+Bad final answer:
+"The specialists agree that quick meals are important..."
+
+Good final answer:
+"Make eggs on toast. It is quick, filling, and uses basic ingredients. Other easy options: quesadilla, pasta with tomato sauce, rice with egg and vegetables, or grilled cheese."
+
+Always optimize for usefulness, directness, and the user's actual intent.`;
+}
+
+function buildReportJudgeSystemPrompt(modeName: string): string {
   return `You are the Final Judge in a ${modeName}.
 
 You will receive the original question/topic and independent responses from several specialist agents.

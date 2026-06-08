@@ -7,7 +7,7 @@ import type {
   RunCouncilResult,
 } from "./types";
 import { getSpecialists, getFinalJudge } from "./types";
-import { ModeNotFoundError, ProviderError, ValidationError } from "./errors";
+import { ModeNotFoundError, ValidationError } from "./errors";
 import { logger, timed } from "./logger";
 import { getMode } from "../modes";
 import { createProvider } from "../providers";
@@ -17,9 +17,55 @@ import {
   buildJudgeUserMessage,
 } from "../prompts/buildPrompts";
 
+// ─── Constants ──────────────────────────────────────────────────────
+
+const MIN_SPECIALISTS_FOR_JUDGE = 2;
+
+const MAX_JUDGE_RETRIES = 2;
+const JUDGE_RETRY_BASE_DELAY_MS = 1000;
+
+// ─── Helpers ────────────────────────────────────────────────────────
+
 function generateId(): string {
   return `council-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Generic retry wrapper with exponential backoff.
+ * Calls `fn` up to `maxRetries + 1` times. If `shouldRetry(result)` returns
+ * true, waits with exponential backoff and tries again.
+ */
+async function withRetry<T>(
+  label: string,
+  fn: () => Promise<T>,
+  shouldRetry: (result: T) => boolean,
+  maxRetries: number,
+  baseDelayMs: number,
+): Promise<{ result: T; attempts: number }> {
+  let attempts = 0;
+  let result: T;
+
+  while (true) {
+    attempts++;
+    result = await fn();
+
+    if (!shouldRetry(result) || attempts > maxRetries) {
+      break;
+    }
+
+    const backoffMs = baseDelayMs * Math.pow(2, attempts - 1);
+    logger.info(`${label} retry ${attempts}/${maxRetries}`, { backoffMs });
+    await delay(backoffMs);
+  }
+
+  return { result: result!, attempts };
+}
+
+// ─── Parse judge report ─────────────────────────────────────────────
 
 function parseJudgeReport(content: string): FinalReport {
   const extractSection = (heading: string): string => {
@@ -65,12 +111,19 @@ function parseJudgeReport(content: string): FinalReport {
   };
 }
 
-/** Minimum number of successful specialist responses needed to run the judge. */
-const MIN_SPECIALISTS_FOR_JUDGE = 2;
+function isReportEmpty(report: FinalReport): boolean {
+  return (
+    !report.summary?.trim() &&
+    report.keyConclusions.length === 0 &&
+    report.agreements.length === 0 &&
+    report.disagreements.length === 0 &&
+    report.risks.length === 0 &&
+    report.recommendations.length === 0
+  );
+}
 
-/**
- * Runs a single agent and returns its response.
- */
+// ─── Run a single agent ─────────────────────────────────────────────
+
 async function runAgent(
   agent: CouncilAgent,
   runId: string,
@@ -129,64 +182,26 @@ async function runAgent(
   }
 }
 
-/**
- * Main council orchestration function.
- *
- * Two-phase execution:
- *  Phase 1: Run all specialist agents in parallel (independent perspectives).
- *  Phase 2: Run the final judge with all specialist responses to synthesize the report.
- *
- * If the final judge fails but specialists succeeded, a fallback report is generated.
- * If too few specialists succeed, the council still returns with a degraded report.
- */
-export async function runCouncil(
+// ─── Phase 1: Specialist agents ─────────────────────────────────────
+
+async function runSpecialists(
+  mode: ReturnType<typeof getMode>,
   input: RunCouncilInput,
-): Promise<RunCouncilResult> {
-  const runId = generateId();
-  const overallStart = performance.now();
-
-  logger.info("Council run started", {
-    runId,
-    mode: input.mode,
-    inputLength: input.input.length,
-  });
-  logger.debug("Council run input", { runId, input: input.input });
-
-  // Validate input
-  if (!input.input?.trim()) {
-    throw new ValidationError("Input cannot be empty");
-  }
-  if (!input.mode) {
-    throw new ValidationError("Mode must be specified");
-  }
-
-  // Get the council mode configuration
-  let mode;
-  try {
-    mode = getMode(input.mode);
-  } catch {
-    throw new ModeNotFoundError(input.mode);
-  }
-
+  runId: string,
+  provider: ReturnType<typeof createProvider>,
+): Promise<{
+  all: AgentResponse[];
+  successful: AgentResponse[];
+  failed: AgentResponse[];
+  durationMs: number;
+}> {
   const specialists = getSpecialists(mode);
-  const finalJudge = getFinalJudge(mode);
 
-  logger.info("Council mode loaded", {
-    runId,
-    mode: mode.id,
-    specialistCount: specialists.length,
-    judgeName: finalJudge?.name ?? "none",
-    specialists: specialists.map((a) => a.name),
-  });
-
-  const provider = createProvider();
-
-  // ─── Phase 1: Run specialist agents in parallel ───
-  const { result: specialistResponses, durationMs: specialistDurationMs } =
-    await timed(
-      "Phase 1: Specialist agents",
-      async () => {
-        const promises = specialists.map((agent) =>
+  const { result: responses, durationMs } = await timed(
+    "Phase 1: Specialist agents",
+    () =>
+      Promise.all(
+        specialists.map((agent) =>
           runAgent(
             agent,
             runId,
@@ -194,137 +209,125 @@ export async function runCouncil(
             agent.systemPrompt,
             buildAgentUserMessage(input.mode, input.input, agent),
           ),
-        );
-        return Promise.all(promises);
-      },
-      { runId, phase: "specialists" },
-    );
+        ),
+      ),
+    { runId, phase: "specialists" },
+  );
 
-  const successfulSpecialists = specialistResponses.filter(
-    (r) => !r.content.startsWith("[Error:"),
-  );
-  const failedSpecialists = specialistResponses.filter((r) =>
-    r.content.startsWith("[Error:"),
-  );
+  const successful = responses.filter((r) => !r.content.startsWith("[Error:"));
+  const failed = responses.filter((r) => r.content.startsWith("[Error:"));
 
   logger.info("Specialist responses collected", {
     runId,
-    totalSpecialists: specialistResponses.length,
-    successCount: successfulSpecialists.length,
-    errorCount: failedSpecialists.length,
-    durationMs: specialistDurationMs,
-    failedAgents: failedSpecialists.map((r) => r.agentName),
+    totalSpecialists: responses.length,
+    successCount: successful.length,
+    errorCount: failed.length,
+    durationMs,
+    failedAgents: failed.map((r) => r.agentName),
   });
 
-  // ─── Phase 2: Run the final judge ───
-  let finalReport: FinalReport;
-  let judgeResponse: AgentResponse | null = null;
-  let judgeDurationMs = 0;
-
-  const canRunJudge =
-    finalJudge && successfulSpecialists.length >= MIN_SPECIALISTS_FOR_JUDGE;
-
-  if (canRunJudge) {
-    const { result: judgeResult, durationMs: jd } = await timed(
-      "Phase 2: Final judge",
-      async () => {
-        // Build the judge's user message with only successful specialist responses
-        const successfulAgents = mode.agents.filter((a) =>
-          successfulSpecialists.some((sr) => sr.agentId === a.id),
-        );
-
-        return runAgent(
-          finalJudge!,
-          runId,
-          provider,
-          buildJudgeSystemPrompt(input.mode, mode.name),
-          buildJudgeUserMessage(
-            input.mode,
-            input.input,
-            successfulSpecialists.map((sr) => {
-              const agentDef = successfulAgents.find(
-                (a) => a.id === sr.agentId,
-              );
-              return {
-                agentName: sr.agentName,
-                role: agentDef?.role ?? "Specialist",
-                content: sr.content,
-              };
-            }),
-          ),
-        );
-      },
-      { runId, phase: "final-judge" },
-    );
-
-    judgeDurationMs = jd;
-    judgeResponse = judgeResult;
-
-    if (!judgeResult.content.startsWith("[Error:")) {
-      finalReport = parseJudgeReport(judgeResult.content);
-      logger.info("Final judge report parsed", {
-        runId,
-        judgeName: finalJudge!.name,
-        durationMs: judgeDurationMs,
-        summaryLength: finalReport.summary.length,
-        keyConclusions: finalReport.keyConclusions.length,
-        agreements: finalReport.agreements.length,
-        disagreements: finalReport.disagreements.length,
-        risks: finalReport.risks.length,
-        recommendations: finalReport.recommendations.length,
-        confidence: finalReport.confidence,
-      });
-    } else {
-      // Judge failed — generate fallback from specialist responses
-      logger.error("Final judge failed, using fallback report", {
-        runId,
-        judgeName: finalJudge!.name,
-        error: judgeResult.content,
-      });
-      finalReport = buildFallbackReport(specialistResponses);
-    }
-  } else {
-    // Cannot run judge — not enough successful specialists or no judge defined
-    const reason = !finalJudge
-      ? "no final judge defined for this mode"
-      : `only ${successfulSpecialists.length} successful specialist(s), need at least ${MIN_SPECIALISTS_FOR_JUDGE}`;
-
-    logger.info("Skipping final judge", { runId, reason });
-    finalReport = buildFallbackReport(specialistResponses);
-  }
-
-  const overallDurationMs = Math.round(performance.now() - overallStart);
-  logger.info("Council run completed", {
-    runId,
-    mode: input.mode,
-    durationMs: overallDurationMs,
-    specialistDurationMs,
-    judgeDurationMs,
-    specialistCount: specialistResponses.length,
-    successCount: successfulSpecialists.length,
-    judgeRan: canRunJudge,
-    judgeSucceeded:
-      canRunJudge &&
-      judgeResponse &&
-      !judgeResponse.content.startsWith("[Error:"),
-    confidence: finalReport.confidence,
-  });
-
-  return {
-    id: runId,
-    modeId: input.mode,
-    userInput: input.input,
-    agentResponses: specialistResponses,
-    judgeResponse,
-    finalReport,
-    createdAt: new Date().toISOString(),
-  };
+  return { all: responses, successful, failed, durationMs };
 }
 
-/**
- * Builds a fallback final report when the judge cannot run or fails.
- * Uses the specialist responses directly.
- */
+// ─── Phase 2: Final judge with retry ────────────────────────────────
+
+async function runJudge(
+  mode: ReturnType<typeof getMode>,
+  input: RunCouncilInput,
+  runId: string,
+  provider: ReturnType<typeof createProvider>,
+  specialistResponses: AgentResponse[],
+  successfulSpecialists: AgentResponse[],
+): Promise<{
+  finalReport: FinalReport;
+  judgeResponse: AgentResponse | null;
+  durationMs: number;
+}> {
+  const finalJudge = getFinalJudge(mode);
+
+  const fallbackReport = buildFallbackReport(specialistResponses);
+
+  if (!finalJudge || successfulSpecialists.length < MIN_SPECIALISTS_FOR_JUDGE) {
+    const reason = !finalJudge
+      ? "no final judge defined"
+      : `only ${successfulSpecialists.length} successful specialist(s), need ${MIN_SPECIALISTS_FOR_JUDGE}`;
+    logger.info("Skipping final judge", { runId, reason });
+    return { finalReport: fallbackReport, judgeResponse: null, durationMs: 0 };
+  }
+
+  // Build judge inputs once — reused across retries
+  const successfulAgents = mode.agents.filter((a) =>
+    successfulSpecialists.some((sr) => sr.agentId === a.id),
+  );
+  const systemPrompt = buildJudgeSystemPrompt(input.mode, mode.name);
+  const userMessage = buildJudgeUserMessage(
+    input.mode,
+    input.input,
+    successfulSpecialists.map((sr) => {
+      const agentDef = successfulAgents.find((a) => a.id === sr.agentId);
+      return {
+        agentName: sr.agentName,
+        role: agentDef?.role ?? "Specialist",
+        content: sr.content,
+      };
+    }),
+  );
+
+  const { result, attempts } = await withRetry(
+    "Final judge",
+    async () => {
+      const { result, durationMs } = await timed(
+        "Phase 2: Final judge",
+        () => runAgent(finalJudge, runId, provider, systemPrompt, userMessage),
+        { runId, phase: "final-judge" },
+      );
+      return { result, durationMs };
+    },
+    (r) =>
+      r.result.content.startsWith("[Error:") ||
+      isReportEmpty(parseJudgeReport(r.result.content)),
+    MAX_JUDGE_RETRIES,
+    JUDGE_RETRY_BASE_DELAY_MS,
+  );
+
+  const judgeResponse = result.result;
+
+  if (
+    judgeResponse.content.startsWith("[Error:") ||
+    isReportEmpty(parseJudgeReport(judgeResponse.content))
+  ) {
+    logger.error("Final judge retries exhausted, using fallback", {
+      runId,
+      judgeName: finalJudge.name,
+      attempts,
+    });
+    return {
+      finalReport: fallbackReport,
+      judgeResponse,
+      durationMs: result.durationMs,
+    };
+  }
+
+  const report = parseJudgeReport(judgeResponse.content);
+  logger.info("Final judge report parsed", {
+    runId,
+    judgeName: finalJudge.name,
+    durationMs: result.durationMs,
+    attempts,
+    summaryLength: report.summary.length,
+    keyConclusions: report.keyConclusions.length,
+    agreements: report.agreements.length,
+    disagreements: report.disagreements.length,
+    risks: report.risks.length,
+    recommendations: report.recommendations.length,
+    confidence: report.confidence,
+  });
+
+  return { finalReport: report, judgeResponse, durationMs: result.durationMs };
+}
+
+// ─── Fallback report ────────────────────────────────────────────────
+
 function buildFallbackReport(
   specialistResponses: AgentResponse[],
 ): FinalReport {
@@ -360,5 +363,92 @@ function buildFallbackReport(
       "Review individual specialist responses for detailed insights.",
     ],
     confidence: successful.length >= 3 ? 3 : 2,
+  };
+}
+
+// ─── Main orchestrator ──────────────────────────────────────────────
+
+export async function runCouncil(
+  input: RunCouncilInput,
+): Promise<RunCouncilResult> {
+  const runId = generateId();
+  const overallStart = performance.now();
+
+  logger.info("Council run started", {
+    runId,
+    mode: input.mode,
+    inputLength: input.input.length,
+  });
+
+  if (!input.input?.trim()) throw new ValidationError("Input cannot be empty");
+  if (!input.mode) throw new ValidationError("Mode must be specified");
+
+  let mode;
+  try {
+    mode = getMode(input.mode);
+  } catch {
+    throw new ModeNotFoundError(input.mode);
+  }
+
+  logger.info("Council mode loaded", {
+    runId,
+    mode: mode.id,
+    specialistCount: getSpecialists(mode).length,
+    judgeName: getFinalJudge(mode)?.name ?? "none",
+  });
+
+  const provider = createProvider();
+
+  // Phase 1
+  const {
+    all: specialistResponses,
+    successful: successfulSpecialists,
+    durationMs: specialistDurationMs,
+  } = await runSpecialists(mode, input, runId, provider);
+
+  // Phase 2
+  const {
+    finalReport,
+    judgeResponse,
+    durationMs: judgeDurationMs,
+  } = await runJudge(
+    mode,
+    input,
+    runId,
+    provider,
+    specialistResponses,
+    successfulSpecialists,
+  );
+
+  // Done
+  const overallDurationMs = Math.round(performance.now() - overallStart);
+  const canRunJudge =
+    !!getFinalJudge(mode) &&
+    successfulSpecialists.length >= MIN_SPECIALISTS_FOR_JUDGE;
+
+  logger.info("Council run completed", {
+    runId,
+    mode: input.mode,
+    durationMs: overallDurationMs,
+    specialistDurationMs,
+    judgeDurationMs,
+    specialistCount: specialistResponses.length,
+    successCount: successfulSpecialists.length,
+    judgeRan: canRunJudge,
+    judgeSucceeded:
+      canRunJudge &&
+      !!judgeResponse &&
+      !judgeResponse.content.startsWith("[Error:"),
+    confidence: finalReport.confidence,
+  });
+
+  return {
+    id: runId,
+    modeId: input.mode,
+    userInput: input.input,
+    agentResponses: specialistResponses,
+    judgeResponse,
+    finalReport,
+    createdAt: new Date().toISOString(),
   };
 }

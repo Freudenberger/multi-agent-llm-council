@@ -15,4 +15,6 @@ export {
   ModeNotFoundError,
   ProviderError,
   ValidationError,
+  ProviderRetryError,
+  ProviderTimeoutError,
 } from "./errors";

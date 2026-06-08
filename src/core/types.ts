@@ -5,7 +5,8 @@ export type CouncilModeId =
   | "idea"
   | "criticalReview"
   | "learning"
-  | "technical";
+  | "technical"
+  | "answer";
 
 export type CouncilAgent = {
   id: string;

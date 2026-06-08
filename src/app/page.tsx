@@ -7,6 +7,7 @@ import type {
   AgentResponse,
   FinalReport,
 } from "@/core/types";
+import { Markdown } from "./components/Markdown";
 
 const MODES: { id: CouncilModeId; name: string; description: string }[] = [
   {
@@ -33,6 +34,11 @@ const MODES: { id: CouncilModeId; name: string; description: string }[] = [
     id: "technical",
     name: "Technical Council",
     description: "Evaluate technical topics and architecture",
+  },
+  {
+    id: "answer",
+    name: "Answer Council",
+    description: "Get a direct answer to a question with supporting analysis",
   },
 ];
 
@@ -277,8 +283,8 @@ function AgentResponseCard({ response }: { response: AgentResponse }) {
         <span className="text-zinc-400">{expanded ? "▲" : "▼"}</span>
       </button>
       {expanded && (
-        <div className="px-4 py-3 bg-zinc-950/50 text-sm text-zinc-300 whitespace-pre-wrap">
-          {response.content}
+        <div className="px-4 py-3 bg-zinc-950/50 text-sm text-zinc-300">
+          <Markdown content={response.content} />
         </div>
       )}
     </div>
@@ -295,7 +301,9 @@ function FinalReportCard({ report }: { report: FinalReport }) {
             <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-2">
               Summary
             </h3>
-            <p className="text-zinc-200">{report.summary}</p>
+            <div className="text-zinc-200" id="summary">
+              <Markdown content={report.summary} />
+            </div>
           </div>
         )}
 

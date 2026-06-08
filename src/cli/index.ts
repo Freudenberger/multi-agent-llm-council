@@ -150,7 +150,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  let mode: "decision" | "idea" | "criticalReview" | "learning" | "technical" =
+  let mode: "decision" | "idea" | "criticalReview" | "learning" | "technical" | "answer" =
     "decision";
   let outputJson = false;
   let inputText = "";
