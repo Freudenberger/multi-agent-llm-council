@@ -10,6 +10,7 @@ function buildAgents(...ids: string[]) {
       name: template.name,
       role: template.role,
       systemPrompt: template.perspective,
+      isFinalJudge: template.isFinalJudge ?? false,
     };
   });
 }

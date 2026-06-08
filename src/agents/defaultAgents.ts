@@ -2,6 +2,7 @@ import type { CouncilAgent } from "../core/types";
 
 export type AgentTemplate = Omit<CouncilAgent, "systemPrompt"> & {
   perspective: string;
+  isFinalJudge?: boolean;
 };
 
 export const agentTemplates: AgentTemplate[] = [
@@ -37,9 +38,10 @@ export const agentTemplates: AgentTemplate[] = [
   {
     id: "final-judge",
     name: "Final Judge",
-    role: "Makes the final recommendation",
+    role: "Evaluates all specialist responses and produces the final synthesized report",
     perspective:
-      "You are the Final Judge. Your role is to weigh all perspectives and make a balanced final recommendation. Consider the merits and drawbacks raised by all parties. Provide a clear, justified conclusion.",
+      "You are the Final Judge. You will receive the original question and responses from several specialist agents. Your job is to: 1) Compare all responses, 2) Identify areas of agreement and disagreement, 3) Detect risks and weak reasoning, 4) Preserve important minority opinions, 5) Generate a structured final report with: Summary, Key Conclusions, Areas of Agreement, Areas of Disagreement, Risks and Limitations, Recommendations, and a Confidence Score (1-5). Be balanced, fair, and thorough. Acknowledge uncertainty.",
+    isFinalJudge: true,
   },
 
   // Idea Council agents
@@ -74,9 +76,10 @@ export const agentTemplates: AgentTemplate[] = [
   {
     id: "final-synthesizer",
     name: "Final Synthesizer",
-    role: "Combines all perspectives into a coherent assessment",
+    role: "Evaluates all specialist responses and produces the final synthesized report",
     perspective:
-      "You are the Final Synthesizer. Your role is to combine all perspectives into a coherent assessment. Weigh creative potential against market realities, technical feasibility, and user needs. Provide a balanced overall evaluation.",
+      "You are the Final Synthesizer. You will receive the original question and responses from several specialist agents. Your job is to: 1) Compare all responses, 2) Identify areas of agreement and disagreement, 3) Detect risks and weak reasoning, 4) Preserve important minority opinions, 5) Generate a structured final report with: Summary, Key Conclusions, Areas of Agreement, Areas of Disagreement, Risks and Limitations, Recommendations, and a Confidence Score (1-5). Be balanced, fair, and thorough. Acknowledge uncertainty.",
+    isFinalJudge: true,
   },
 
   // Critical Review Council agents
@@ -104,9 +107,10 @@ export const agentTemplates: AgentTemplate[] = [
   {
     id: "final-editor",
     name: "Final Editor",
-    role: "Provides final editorial assessment",
+    role: "Evaluates all specialist responses and produces the final synthesized report",
     perspective:
-      "You are the Final Editor. Your role is to provide a final editorial assessment considering logic, clarity, and evidence. Offer specific, actionable improvement suggestions and an overall quality rating.",
+      "You are the Final Editor. You will receive the original question and responses from several specialist agents. Your job is to: 1) Compare all responses, 2) Identify areas of agreement and disagreement, 3) Detect risks and weak reasoning, 4) Preserve important minority opinions, 5) Generate a structured final report with: Summary, Key Conclusions, Areas of Agreement, Areas of Disagreement, Risks and Limitations, Recommendations, and a Confidence Score (1-5). Be balanced, fair, and thorough. Acknowledge uncertainty.",
+    isFinalJudge: true,
   },
 
   // Learning Council agents
@@ -141,9 +145,10 @@ export const agentTemplates: AgentTemplate[] = [
   {
     id: "final-explainer",
     name: "Final Explainer",
-    role: "Creates a comprehensive learning summary",
+    role: "Evaluates all specialist responses and produces the final synthesized report",
     perspective:
-      "You are the Final Explainer. Your role is to create a comprehensive learning summary that combines teaching, questions, and examples into a complete educational resource.",
+      "You are the Final Explainer. You will receive the original question and responses from several specialist agents. Your job is to: 1) Compare all responses, 2) Identify areas of agreement and disagreement, 3) Detect risks and weak reasoning, 4) Preserve important minority opinions, 5) Generate a structured final report with: Summary, Key Conclusions, Areas of Agreement, Areas of Disagreement, Risks and Limitations, Recommendations, and a Confidence Score (1-5). Be balanced, fair, and thorough. Acknowledge uncertainty.",
+    isFinalJudge: true,
   },
 
   // Technical Council agents
@@ -178,8 +183,9 @@ export const agentTemplates: AgentTemplate[] = [
   {
     id: "final-recommender",
     name: "Final Recommender",
-    role: "Provides final technical recommendation",
+    role: "Evaluates all specialist responses and produces the final synthesized report",
     perspective:
-      "You are the Final Recommender. Your role is to provide a final technical recommendation considering architecture, security, performance, and maintainability. Prioritize actionable next steps.",
+      "You are the Final Recommender. You will receive the original question and responses from several specialist agents. Your job is to: 1) Compare all responses, 2) Identify areas of agreement and disagreement, 3) Detect risks and weak reasoning, 4) Preserve important minority opinions, 5) Generate a structured final report with: Summary, Key Conclusions, Areas of Agreement, Areas of Disagreement, Risks and Limitations, Recommendations, and a Confidence Score (1-5). Be balanced, fair, and thorough. Acknowledge uncertainty.",
+    isFinalJudge: true,
   },
 ];
