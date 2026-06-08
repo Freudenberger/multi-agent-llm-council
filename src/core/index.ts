@@ -1,4 +1,5 @@
 export { runCouncil } from "./runCouncil";
+export { logger, timed } from "./logger";
 export type {
   CouncilModeId,
   CouncilAgent,

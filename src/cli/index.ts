@@ -12,6 +12,7 @@
  */
 
 import { runCouncil } from "../core/runCouncil";
+import { logger } from "../core/logger";
 import { listModes } from "../modes";
 
 function printUsage(): void {
@@ -170,6 +171,10 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  logger.info("CLI council run started", {
+    mode,
+    inputLength: inputText.length,
+  });
   console.log(`\n🏛️  Running ${mode} council analysis...\n`);
 
   try {
@@ -180,11 +185,17 @@ async function main(): Promise<void> {
     } else {
       console.log(formatReport(result));
     }
+
+    logger.info("CLI council run completed", {
+      runId: result.id,
+      mode: result.modeId,
+      confidence: result.finalReport.confidence,
+    });
   } catch (error) {
-    console.error(
-      "Error:",
-      error instanceof Error ? error.message : "Unknown error",
-    );
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    logger.error("CLI council run failed", { error: errorMessage });
+    console.error("Error:", errorMessage);
     process.exit(1);
   }
 }

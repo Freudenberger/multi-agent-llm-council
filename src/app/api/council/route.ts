@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runCouncil } from "@/core/runCouncil";
+import { logger } from "@/core/logger";
 import { z } from "zod";
 
 const requestSchema = z.object({
@@ -11,25 +12,54 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const start = performance.now();
+  logger.info("API request received", { method: "POST", path: "/api/council" });
+
   try {
     const body = await request.json();
 
     const validation = requestSchema.safeParse(body);
     if (!validation.success) {
+      logger.info("API validation failed", {
+        errors: validation.error.flatten().fieldErrors,
+      });
       return NextResponse.json(
         { error: "Validation failed", details: validation.error.flatten() },
         { status: 400 },
       );
     }
 
+    logger.debug("API request validated", {
+      mode: validation.data.mode,
+      inputLength: validation.data.input.length,
+    });
+
     const result = await runCouncil({
       input: validation.data.input,
       mode: validation.data.mode,
     });
 
+    const durationMs = Math.round(performance.now() - start);
+    logger.info("API request completed", {
+      runId: result.id,
+      mode: result.modeId,
+      durationMs,
+      agentCount: result.agentResponses.length,
+      confidence: result.finalReport.confidence,
+    });
+
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Council API error:", error);
+    const durationMs = Math.round(performance.now() - start);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    const errorName = error instanceof Error ? error.name : "Error";
+
+    logger.error("API request failed", {
+      durationMs,
+      error: errorMessage,
+      errorName,
+    });
 
     if (error instanceof Error) {
       if (error.name === "ValidationError") {

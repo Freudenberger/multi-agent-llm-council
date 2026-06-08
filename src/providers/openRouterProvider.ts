@@ -1,4 +1,5 @@
 import type { LLMProvider, GenerateInput, GenerateOutput } from "./types";
+import { logger } from "../core/logger";
 
 /**
  * OpenRouter Provider — uses OpenRouter API for LLM calls.
@@ -22,6 +23,15 @@ export class OpenRouterProvider implements LLMProvider {
       );
     }
 
+    const start = performance.now();
+    logger.debug("OpenRouterProvider.generate called", {
+      model: this.model,
+      systemPromptLength: input.systemPrompt.length,
+      userMessageLength: input.userMessage.length,
+      temperature: input.temperature,
+      maxTokens: input.maxTokens,
+    });
+
     const response = await fetch(this.apiUrl, {
       method: "POST",
       headers: {
@@ -44,6 +54,13 @@ export class OpenRouterProvider implements LLMProvider {
 
     if (!response.ok) {
       const errorText = await response.text();
+      const durationMs = Math.round(performance.now() - start);
+      logger.error("OpenRouterProvider API error", {
+        model: this.model,
+        status: response.status,
+        durationMs,
+        error: errorText.substring(0, 500),
+      });
       throw new Error(
         `OpenRouter API error: ${response.status} - ${errorText}`,
       );
@@ -51,6 +68,13 @@ export class OpenRouterProvider implements LLMProvider {
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
+    const durationMs = Math.round(performance.now() - start);
+
+    logger.debug("OpenRouterProvider.generate completed", {
+      model: this.model,
+      durationMs,
+      responseLength: content.length,
+    });
 
     return {
       content,

@@ -1,4 +1,5 @@
 import type { LLMProvider, GenerateInput, GenerateOutput } from "./types";
+import { logger } from "../core/logger";
 
 /**
  * Mock Provider — returns predefined responses without calling any external API.
@@ -58,10 +59,18 @@ const MOCK_RESPONSES: Record<string, string> = {
 
 export class MockProvider implements LLMProvider {
   async generate(input: GenerateInput): Promise<GenerateOutput> {
+    const start = performance.now();
+    logger.debug("MockProvider.generate called", {
+      model: "mock-provider",
+      systemPromptLength: input.systemPrompt.length,
+      userMessageLength: input.userMessage.length,
+      temperature: input.temperature,
+      maxTokens: input.maxTokens,
+    });
+
     // Simulate network delay
-    await new Promise((resolve) =>
-      setTimeout(resolve, 300 + Math.random() * 700),
-    );
+    const delayMs = 300 + Math.random() * 700;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
 
     // Find a matching mock response based on the system prompt
     const systemLower = input.systemPrompt.toLowerCase();
@@ -74,6 +83,13 @@ export class MockProvider implements LLMProvider {
         break;
       }
     }
+
+    const durationMs = Math.round(performance.now() - start);
+    logger.debug("MockProvider.generate completed", {
+      model: "mock-provider",
+      durationMs,
+      responseLength: content.length,
+    });
 
     return {
       content,
