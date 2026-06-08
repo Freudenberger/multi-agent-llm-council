@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: multi-agent-llm-council
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: LLM_PROVIDER
+        value: mock
+      - key: OPENROUTER_API_KEY
+        sync: false
