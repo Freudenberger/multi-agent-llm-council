@@ -137,12 +137,20 @@ async function withRetry<T>(
 
 function parseJudgeReport(content: string): FinalReport {
   const extractSection = (heading: string): string => {
+    // Match heading and capture everything after it until the next ## heading
+    // or end of string. The non-greedy [\s\S]*? ensures we stop at the first
+    // subsequent heading, while the fallback to $ handles the last section
+    // (which may be truncated mid-content).
     const regex = new RegExp(
       `##?\\s*${heading}[:\\s]*\\n([\\s\\S]*?)(?=\\n##|$)`,
       "i",
     );
     const match = content.match(regex);
-    return match ? match[1].trim() : "";
+    if (!match) return "";
+    // If the captured text ends abruptly (no terminal punctuation and no
+    // newline), the response was likely truncated by the token limit.
+    const captured = match[1].trim();
+    return captured;
   };
 
   const extractList = (heading: string): string[] => {
@@ -168,14 +176,27 @@ function parseJudgeReport(content: string): FinalReport {
     confidence = parseInt(confidenceMatch[1], 10);
   }
 
+  // Detect truncation: if the content doesn't end with a complete sentence
+  // (no terminal punctuation in the last 50 chars) and is missing expected
+  // sections, the response was likely cut off by the token limit.
+  const last50 = content.slice(-50);
+  const endsAbruptly = !/[.!?]\s*$/.test(last50);
+  const hasMinimalContent =
+    keyConclusions.length === 0 &&
+    agreements.length === 0 &&
+    recommendations.length === 0;
+  const wasTruncated = endsAbruptly && hasMinimalContent;
+
   return {
-    summary: summary || content.substring(0, 500),
+    summary: wasTruncated
+      ? summary || content.substring(0, 500) + "\n\n_(Response was truncated — the analysis may be incomplete.)_"
+      : summary || content.substring(0, 500),
     keyConclusions,
     agreements,
     disagreements,
     risks,
     recommendations,
-    confidence,
+    confidence: wasTruncated ? Math.min(confidence, 2) : confidence,
   };
 }
 
@@ -216,7 +237,7 @@ async function runAgent(
       systemPrompt,
       userMessage,
       temperature: 0.7,
-      maxTokens: agent.isFinalJudge ? 4096 : 2048,
+      maxTokens: agent.isFinalJudge ? 16_384 : 2048,
     });
 
     const agentMs = Math.round(performance.now() - agentStart);
