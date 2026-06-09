@@ -1,6 +1,12 @@
 {
-  "name": "llm-council",
+  "name": "multi-agent-llm-council",
+  "description": "A multi-agent council framework for LLMs, built with Next.js and Supabase.",
   "version": "0.1.0",
+  "author": "Freudenberger",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Freudenberger/multi-agent-llm-council.git"
+  },
   "private": true,
   "scripts": {
     "dev": "next dev",
