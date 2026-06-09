@@ -16,32 +16,41 @@ import { logger } from "../core/logger";
  *     id          TEXT PRIMARY KEY,
  *     title       TEXT NOT NULL,
  *     mode_id     TEXT NOT NULL,
+ *     user_id     TEXT NOT NULL,
  *     user_input  TEXT NOT NULL,
  *     agent_responses JSONB NOT NULL DEFAULT '[]',
  *     judge_response  JSONB,
  *     final_report    JSONB NOT NULL DEFAULT '{}',
  *     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
  *   );
+ *
+ *   CREATE INDEX idx_conversations_user_id ON conversations(user_id, created_at DESC);
  */
+
+type SupabaseQueryResult = {
+  data: unknown;
+  error: { message: string } | null;
+};
+
+type SupabaseQueryBuilder = {
+  order: (
+    column: string,
+    opts: { ascending: boolean },
+  ) => Promise<SupabaseQueryResult>;
+  eq: (
+    column: string,
+    value: string,
+  ) => SupabaseQueryBuilder;
+  single: () => Promise<SupabaseQueryResult>;
+  then: <TResult1 = SupabaseQueryResult, TResult2 = never>(
+    onfulfilled?: (value: SupabaseQueryResult) => TResult1 | PromiseLike<TResult1>,
+    onrejected?: (reason: unknown) => TResult2 | PromiseLike<TResult2>,
+  ) => Promise<TResult1 | TResult2>;
+};
 
 type SupabaseClient = {
   from: (table: string) => {
-    select: (columns: string) => {
-      order: (
-        column: string,
-        opts: { ascending: boolean },
-      ) => Promise<{
-        data: unknown[] | null;
-        error: { message: string } | null;
-      }>;
-      eq: (
-        column: string,
-        value: string,
-      ) => Promise<{
-        data: unknown[] | null;
-        error: { message: string } | null;
-      }>;
-    };
+    select: (columns: string) => SupabaseQueryBuilder;
     insert: (
       row: Record<string, unknown>,
     ) => Promise<{ error: { message: string } | null }>;
@@ -97,6 +106,7 @@ function rowToConversation(row: Record<string, unknown>): StoredConversation {
   return {
     id: row.id as string,
     modeId: row.mode_id as string as CouncilModeId,
+    userId: row.user_id as string,
     userInput: row.user_input as string,
     agentResponses:
       (row.agent_responses as StoredConversation["agentResponses"]) || [],
@@ -116,14 +126,17 @@ function rowToConversation(row: Record<string, unknown>): StoredConversation {
   };
 }
 
+const MAX_CONVERSATIONS_PER_USER = 3;
+
 export const supabaseStorage: StorageProvider = {
-  async list(): Promise<ConversationSummary[]> {
+  async list(userId: string): Promise<ConversationSummary[]> {
     const c = getClient();
     if (!c) return [];
 
     const { data, error } = await c
       .from("conversations")
       .select("id, title, mode_id, created_at")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -131,7 +144,7 @@ export const supabaseStorage: StorageProvider = {
       return [];
     }
 
-    return (data || []).map((row) =>
+    return ((data as unknown[]) || []).map((row: unknown) =>
       rowToSummary(row as Record<string, unknown>),
     );
   },
@@ -143,26 +156,33 @@ export const supabaseStorage: StorageProvider = {
     const { data, error } = await c
       .from("conversations")
       .select("*")
-      .eq("id", id);
+      .eq("id", id)
+      .single();
 
     if (error) {
       logger.error("Supabase get failed", { id, error: error.message });
       return null;
     }
 
-    const rows = data || [];
-    if (rows.length === 0) return null;
-    return rowToConversation(rows[0] as Record<string, unknown>);
+    return rowToConversation(data as Record<string, unknown>);
   },
 
   async save(conversation: StoredConversation): Promise<void> {
     const c = getClient();
     if (!c) throw new Error("Supabase client not available");
 
+    // Enforce max 3 conversations per user
+    const userConvs = await this.list(conversation.userId);
+    if (userConvs.length >= MAX_CONVERSATIONS_PER_USER) {
+      const oldest = userConvs[userConvs.length - 1];
+      await this.delete(oldest.id);
+    }
+
     const row = {
       id: conversation.id,
       title: conversation.title,
       mode_id: conversation.modeId,
+      user_id: conversation.userId,
       user_input: conversation.userInput,
       agent_responses: conversation.agentResponses,
       judge_response: conversation.judgeResponse,

@@ -8,6 +8,8 @@ import {
   ProviderTimeoutError,
 } from "@/core/errors";
 import { z } from "zod";
+import { auth } from "@/auth/config";
+import { createStorage } from "@/storage";
 
 const customAgentSchema = z.object({
   id: z.string().min(1),
@@ -153,6 +155,24 @@ export async function POST(request: NextRequest) {
       agentCount: result.agentResponses.length,
       confidence: result.finalReport.confidence,
     });
+
+    // Save to storage only if user is authenticated
+    const session = await auth();
+    if (session?.user?.id) {
+      const storage = createStorage();
+      const title =
+        validation.data.input.substring(0, 60) +
+        (validation.data.input.length > 60 ? "..." : "");
+      await storage.save({
+        ...result,
+        userId: session.user.id,
+        title,
+      });
+      logger.info("Conversation saved for user", {
+        runId: result.id,
+        userId: session.user.id,
+      });
+    }
 
     return NextResponse.json(result);
   } catch (error) {

@@ -5,6 +5,7 @@ import type { RunCouncilResult } from "../core/types";
  */
 export type StoredConversation = RunCouncilResult & {
   title: string;
+  userId: string;
 };
 
 /**
@@ -23,11 +24,11 @@ export type ConversationSummary = {
  * Implementations: localStorage (JSON files) and supabaseStorage (PostgreSQL).
  */
 export type StorageProvider = {
-  /** List all conversations (newest first). */
-  list(): Promise<ConversationSummary[]>;
+  /** List conversations for a user (newest first). */
+  list(userId: string): Promise<ConversationSummary[]>;
   /** Get a single conversation by ID. */
   get(id: string): Promise<StoredConversation | null>;
-  /** Save a new conversation. */
+  /** Save a new conversation. Enforces max 3 per user (deletes oldest). */
   save(conversation: StoredConversation): Promise<void>;
   /** Delete a conversation by ID. */
   delete(id: string): Promise<void>;

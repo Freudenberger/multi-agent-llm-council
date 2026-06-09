@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import type {
   CouncilModeId,
   RunCouncilResult,
@@ -8,6 +9,7 @@ import type {
   FinalReport,
   CustomAgent,
 } from "@/core/types";
+import type { ConversationSummary } from "@/storage/types";
 import { Markdown } from "./components/Markdown";
 import { AgentCustomizer } from "./components/AgentCustomizer";
 import { UserMenu } from "./components/UserMenu";
@@ -142,6 +144,9 @@ export default function Home() {
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [showCustomEditor, setShowCustomEditor] = useState(true);
+  const [history, setHistory] = useState<ConversationSummary[]>([]);
+
+  const { data: session } = useSession();
 
   // Fetch free models from OpenRouter on mount
   useEffect(() => {
@@ -167,6 +172,20 @@ export default function Home() {
     fetchModels();
     return () => { cancelled = true; };
   }, []);
+
+  // Load conversation history when user logs in
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setHistory([]);
+      return;
+    }
+    fetch("/api/conversations")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setHistory(data);
+      })
+      .catch(() => {});
+  }, [session?.user?.id]);
 
   // Inline validation
   const validateInput = useCallback((value: string): string | null => {
@@ -212,6 +231,14 @@ export default function Home() {
       }
 
       setResult(data);
+
+      // Refresh history (backend auto-saves when authenticated)
+      if (session?.user?.id) {
+        const historyRes = await fetch("/api/conversations");
+        if (historyRes.ok) {
+          setHistory(await historyRes.json());
+        }
+      }
     } catch {
       // Network or parse error
       setError({
@@ -224,7 +251,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [input, mode, customAgents, validateInput]);
+  }, [input, mode, customAgents, validateInput, session]);
 
   const copyResult = useCallback(() => {
     if (!result) return;

@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createStorage } from "@/storage";
+import { auth } from "@/auth/config";
 import { logger } from "@/core/logger";
 
 const storage = createStorage();
 
-/** GET /api/conversations — list all conversations */
+/** GET /api/conversations — list conversations for logged-in user */
 export async function GET() {
   try {
-    const conversations = await storage.list();
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const conversations = await storage.list(session.user.id);
     return NextResponse.json(conversations);
   } catch (error) {
     logger.error("Failed to list conversations", {
@@ -20,9 +26,14 @@ export async function GET() {
   }
 }
 
-/** POST /api/conversations — save a new conversation */
+/** POST /api/conversations — save a conversation (logged-in users only) */
 export async function POST(request: NextRequest) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
 
     if (!body.id || !body.modeId || !body.userInput) {
@@ -40,6 +51,7 @@ export async function POST(request: NextRequest) {
     await storage.save({
       ...body,
       title,
+      userId: session.user.id,
       createdAt: body.createdAt || new Date().toISOString(),
     });
 

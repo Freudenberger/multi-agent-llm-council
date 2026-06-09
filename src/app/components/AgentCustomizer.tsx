@@ -32,6 +32,14 @@ export function AgentCustomizer({ defaultAgents, allTemplates, onChange, availab
   // Snapshot of agent state when editing starts — used by Cancel to revert
   const editSnapshot = useRef<Record<string, CustomAgent>>({});
 
+  const updateCustomAgents = useCallback(
+    (next: Record<string, CustomAgent>) => {
+      setCustomAgents(next);
+      onChange(next);
+    },
+    [onChange],
+  );
+
   const handleStartEditing = useCallback(
     (agentId: string) => {
       setEditingAgentId(agentId);
@@ -44,41 +52,23 @@ export function AgentCustomizer({ defaultAgents, allTemplates, onChange, availab
 
   const handleCancelEditing = useCallback(
     (agentId: string) => {
-      // Revert to snapshot taken when editing started
       const snapshot = editSnapshot.current;
-      // If the agent was not customized before editing, remove it from customAgents
-      // If it was customized, restore the snapshot version
-      setCustomAgents((prev) => {
-        const beforeEdit = snapshot;
-        const agentDefault = defaultAgents.find((a) => a.id === agentId);
-        const wasCustomizedBefore = !!beforeEdit[agentId];
+      const wasCustomizedBefore = !!snapshot[agentId];
+      const agentDefault = defaultAgents.find((a) => a.id === agentId);
 
-        if (!wasCustomizedBefore && !agentDefault) {
-          // Agent didn't exist before, remove any edits
-          const next = { ...prev };
-          delete next[agentId];
-          onChange(next);
-          return next;
-        }
+      let next: Record<string, CustomAgent> = { ...customAgents };
 
-        if (!wasCustomizedBefore && agentDefault) {
-          // Agent was using defaults, remove from customAgents to restore default
-          const next = { ...prev };
-          delete next[agentId];
-          onChange(next);
-          return next;
-        }
+      if (!wasCustomizedBefore) {
+        delete next[agentId];
+      } else {
+        next = { ...customAgents, [agentId]: snapshot[agentId] };
+      }
 
-        // Agent was customized before editing, restore snapshot
-        const next = { ...prev, [agentId]: beforeEdit[agentId] };
-        onChange(next);
-        return next;
-      });
-
+      updateCustomAgents(next);
       setEditingAgentId(null);
       setShowTemplatePicker(null);
     },
-    [defaultAgents, onChange],
+    [customAgents, defaultAgents, updateCustomAgents],
   );
 
   const getEffectiveAgent = useCallback(
@@ -108,45 +98,40 @@ export function AgentCustomizer({ defaultAgents, allTemplates, onChange, availab
 
   const handleToggleDisabled = useCallback(
     (agentId: string) => {
-      setCustomAgents((prev) => {
-        const current =
-          prev[agentId] ?? defaultAgents.find((a) => a.id === agentId)!;
-        const next = {
+      const current =
+        customAgents[agentId] ?? defaultAgents.find((a) => a.id === agentId)!;
+      const next = {
+        ...customAgents,
+        [agentId]: {
           ...current,
           disabled: current.disabled !== true,
-        };
-        const updated = { ...prev, [agentId]: next };
-        onChange(updated);
-        return updated;
-      });
+        },
+      };
+      updateCustomAgents(next);
     },
-    [defaultAgents, onChange],
+    [customAgents, defaultAgents, updateCustomAgents],
   );
 
   const handleFieldChange = useCallback(
     (agentId: string, field: keyof CustomAgent, value: string | boolean) => {
-      setCustomAgents((prev) => {
-        const current = prev[agentId] ?? defaultAgents.find((a) => a.id === agentId)!;
-        const next = { ...current, [field]: value };
-        const updated = { ...prev, [agentId]: next };
-        onChange(updated);
-        return updated;
-      });
+      const current = customAgents[agentId] ?? defaultAgents.find((a) => a.id === agentId)!;
+      const next = {
+        ...customAgents,
+        [agentId]: { ...current, [field]: value },
+      };
+      updateCustomAgents(next);
     },
-    [defaultAgents, onChange],
+    [customAgents, defaultAgents, updateCustomAgents],
   );
 
   const handleResetAgent = useCallback(
     (agentId: string) => {
-      setCustomAgents((prev) => {
-        const next = { ...prev };
-        delete next[agentId];
-        onChange(next);
-        return next;
-      });
+      const next = { ...customAgents };
+      delete next[agentId];
+      updateCustomAgents(next);
       setEditingAgentId(null);
     },
-    [onChange],
+    [customAgents, updateCustomAgents],
   );
 
   const handleResetAll = useCallback(() => {
@@ -159,17 +144,14 @@ export function AgentCustomizer({ defaultAgents, allTemplates, onChange, availab
     (agentId: string, templateId: string) => {
       const template = allTemplates.find((t) => t.id === templateId);
       if (!template) return;
-      setCustomAgents((prev) => {
-        const next = {
-          ...prev,
-          [agentId]: { ...template },
-        };
-        onChange(next);
-        return next;
-      });
+      const next = {
+        ...customAgents,
+        [agentId]: { ...template },
+      };
+      updateCustomAgents(next);
       setShowTemplatePicker(null);
     },
-    [allTemplates, onChange],
+    [allTemplates, customAgents, updateCustomAgents],
   );
 
   const customizedCount = Object.keys(customAgents).length;

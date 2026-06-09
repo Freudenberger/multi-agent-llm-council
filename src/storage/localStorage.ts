@@ -24,8 +24,10 @@ function filePath(id: string): string {
   return path.join(DATA_DIR, `${id}.json`);
 }
 
+const MAX_CONVERSATIONS_PER_USER = 3;
+
 export const localStorage: StorageProvider = {
-  async list(): Promise<ConversationSummary[]> {
+  async list(userId: string): Promise<ConversationSummary[]> {
     ensureDir();
     const files = fs.readdirSync(DATA_DIR).filter((f) => f.endsWith(".json"));
 
@@ -34,6 +36,7 @@ export const localStorage: StorageProvider = {
       try {
         const raw = fs.readFileSync(path.join(DATA_DIR, file), "utf-8");
         const conv: StoredConversation = JSON.parse(raw);
+        if (conv.userId !== userId) continue;
         summaries.push({
           id: conv.id,
           title: conv.title,
@@ -68,11 +71,25 @@ export const localStorage: StorageProvider = {
 
   async save(conversation: StoredConversation): Promise<void> {
     ensureDir();
+
+    // Enforce max 3 conversations per user: delete oldest if at limit
+    const userConvs = await this.list(conversation.userId);
+    if (userConvs.length >= MAX_CONVERSATIONS_PER_USER) {
+      // Delete oldest (last in sorted list)
+      const oldest = userConvs[userConvs.length - 1];
+      await this.delete(oldest.id);
+      logger.debug("Deleted oldest conversation to enforce limit", {
+        deletedId: oldest.id,
+        userId: conversation.userId,
+      });
+    }
+
     const fp = filePath(conversation.id);
     fs.writeFileSync(fp, JSON.stringify(conversation, null, 2), "utf-8");
     logger.debug("Conversation saved", {
       id: conversation.id,
       title: conversation.title,
+      userId: conversation.userId,
     });
   },
 
