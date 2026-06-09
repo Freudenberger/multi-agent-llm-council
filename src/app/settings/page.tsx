@@ -311,10 +311,44 @@ function ProviderKeyCard({
 }) {
   const [showKey, setShowKey] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testMessage, setTestMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const hasExistingKey = savedKey.length > 0;
+  const hasInputKey = value.trim().length > 0;
+  const canTest = hasExistingKey || hasInputKey;
 
   // Derive effective confirm state — hide dialog when key is gone
   const showConfirmRemove = confirmRemove && hasExistingKey;
+
+  const handleTest = useCallback(async () => {
+    setTestMessage(null);
+    if (!canTest) {
+      setTestMessage({ type: "error", text: "Enter or save an API key before testing." });
+      return;
+    }
+
+    setTesting(true);
+    try {
+      const response = await fetch(
+        `/api/user/settings/${encodeURIComponent(provider.id)}/test`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(hasInputKey ? { apiKey: value.trim() } : {}),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        setTestMessage({ type: "error", text: data.error || "API key validation failed." });
+      } else {
+        setTestMessage({ type: "success", text: data.message || "API key validated successfully." });
+      }
+    } catch {
+      setTestMessage({ type: "error", text: "Unable to validate the API key. Please try again." });
+    } finally {
+      setTesting(false);
+    }
+  }, [canTest, hasInputKey, provider.id, value]);
 
   return (
     <div className="border border-zinc-700 rounded-lg bg-zinc-900 overflow-hidden">
@@ -404,14 +438,35 @@ function ProviderKeyCard({
         </div>
 
         <div className="mt-3">
-          <a
-            href={provider.docsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            How to get an API key →
-          </a>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href={provider.docsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              How to get an API key →
+            </a>
+            <button
+              type="button"
+              onClick={handleTest}
+              disabled={!canTest || testing}
+              className="text-xs px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-300 hover:text-zinc-100 hover:border-zinc-600 disabled:cursor-not-allowed disabled:text-zinc-500 disabled:border-zinc-700 transition-colors"
+            >
+              {testing ? "Testing..." : "Test API key"}
+            </button>
+          </div>
+          {testMessage && (
+            <p
+              className={`mt-2 text-xs ${
+                testMessage.type === "success"
+                  ? "text-green-300"
+                  : "text-red-400"
+              }`}
+            >
+              {testMessage.text}
+            </p>
+          )}
         </div>
       </div>
     </div>
