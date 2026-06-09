@@ -19,13 +19,15 @@ import { getModeAgents, getAllAgentTemplates } from "./agentData";
 const MODES: {
   id: CouncilModeId;
   name: string;
+  fullName?: string;
   description: string;
   agents: { name: string; role: string }[];
   bestFor: string[];
 }[] = [
   {
     id: "decision",
-    name: "Decision Council",
+    name: "Decision",
+    fullName: "Decision Council",    
     description: "Analyze a decision from multiple perspectives",
     agents: [
       { name: "Optimist", role: "Finds opportunities and positive outcomes" },
@@ -42,7 +44,8 @@ const MODES: {
   },
   {
     id: "idea",
-    name: "Idea Council",
+    name: "Idea",
+    fullName: "Idea Council",
     description: "Evaluate an idea's potential and feasibility",
     agents: [
       { name: "Creative Thinker", role: "Explores creative possibilities" },
@@ -59,7 +62,8 @@ const MODES: {
   },
   {
     id: "criticalReview",
-    name: "Critical Review",
+    name: "Critical",
+    fullName: "Critical Review Council",
     description: "Review text, arguments, or proposals",
     agents: [
       { name: "Logic Reviewer", role: "Checks logical structure and reasoning" },
@@ -76,7 +80,8 @@ const MODES: {
   },
   {
     id: "learning",
-    name: "Learning Council",
+    name: "Learning",
+    fullName: "Learning Council",
     description: "Get educational explanations",
     agents: [
       { name: "Teacher", role: "Explains concepts step by step" },
@@ -93,7 +98,8 @@ const MODES: {
   },
   {
     id: "technical",
-    name: "Technical Council",
+    name: "Technical",
+    fullName: "Technical Council",
     description: "Evaluate technical topics and architecture",
     agents: [
       { name: "Software Architect", role: "Evaluates architecture and design" },
@@ -110,7 +116,8 @@ const MODES: {
   },
   {
     id: "answer",
-    name: "Answer Council",
+    name: "Answer",
+    fullName: "Answer Council",
     description: "Get a direct answer with supporting analysis",
     agents: [
       { name: "Subject Matter Expert", role: "Provides domain expertise" },
@@ -184,10 +191,7 @@ export default function Home() {
 
   // Load conversation history when user logs in
   useEffect(() => {
-    if (!session?.user?.id) {
-      setHistory([]);
-      return;
-    }
+    if (!session?.user?.id) return;
     fetch("/api/conversations")
       .then((r) => r.json())
       .then((data) => {
@@ -405,7 +409,7 @@ export default function Home() {
             </div>
 
             {/* Right column: mode details panel */}
-            <div className="lg:sticky lg:top-8 lg:self-start">
+            <div className="hidden md:block lg:sticky lg:top-8 lg:self-start" id="mode-details">
               <ModeDetailsPanel mode={MODES.find((m) => m.id === mode)!} />
             </div>
           </section>
@@ -505,39 +509,37 @@ function ModeDetailsPanel({ mode }: { mode: (typeof MODES)[number] }) {
   return (
     <div className="border border-zinc-700 rounded-lg bg-zinc-900 overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-zinc-800">
-        <h3 className="font-semibold text-sm text-zinc-100">{mode.name}</h3>
-        <p className="text-xs text-zinc-400 mt-1">{mode.description}</p>
+      <div className="px-3 py-2 border-b border-zinc-800">
+        <h3 className="font-semibold text-xs text-zinc-100">{mode.fullName || mode.name}</h3>
+        <p className="text-[11px] text-zinc-500 mt-0.5 leading-snug">{mode.description}</p>
       </div>
 
       {/* Agents */}
-      <div className="px-4 py-3 border-b border-zinc-800">
-        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+      <div className="px-3 py-2 border-b border-zinc-800">
+        <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1">
           Agents ({mode.agents.length})
         </p>
-        <div className="space-y-2">
+        <div className="space-y-1">
           {mode.agents.map((agent, i) => (
-            <div key={i} className="flex items-start gap-2">
-              <span className="text-blue-400 text-xs mt-0.5 shrink-0">•</span>
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-zinc-200">{agent.name}</div>
-                <div className="text-xs text-zinc-500 leading-relaxed">{agent.role}</div>
-              </div>
+            <div key={i} className="flex items-baseline gap-1.5">
+              <span className="text-blue-400 text-[10px] shrink-0">•</span>
+              <span className="text-xs font-medium text-zinc-300">{agent.name}</span>
+              <span className="text-[10px] text-zinc-600">— {agent.role}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Best for */}
-      <div className="px-4 py-3">
-        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+      <div className="px-3 py-2">
+        <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1">
           Best for
         </p>
-        <ul className="space-y-1.5">
+        <ul className="space-y-0.5">
           {mode.bestFor.map((useCase, i) => (
-            <li key={i} className="text-xs text-zinc-400 flex items-start gap-2">
-              <span className="text-green-400 shrink-0">✓</span>
-              <span className="leading-relaxed">{useCase}</span>
+            <li key={i} className="text-[11px] text-zinc-500 flex items-baseline gap-1.5">
+              <span className="text-green-500 shrink-0">✓</span>
+              <span className="leading-snug">{useCase}</span>
             </li>
           ))}
         </ul>
