@@ -10,6 +10,7 @@ import type {
 } from "@/core/types";
 import { Markdown } from "./components/Markdown";
 import { AgentCustomizer } from "./components/AgentCustomizer";
+import { UserMenu } from "./components/UserMenu";
 import { getModeAgents, getAllAgentTemplates } from "./agentData";
 
 const MODES: {
@@ -267,14 +268,17 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="border-b border-zinc-800 px-6 py-4">
-        <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <span className="text-2xl">🏛️</span>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Multi-Agent LLM Council</h1>
-            <p className="text-sm text-zinc-400">
-              Multi-perspective analysis using specialized AI agents
-            </p>
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🏛️</span>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Multi-Agent LLM Council</h1>
+              <p className="text-sm text-zinc-400">
+                Multi-perspective analysis using specialized AI agents
+              </p>
+            </div>
           </div>
+          <UserMenu />
         </div>
       </header>
 
