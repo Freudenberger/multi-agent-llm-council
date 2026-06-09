@@ -16,6 +16,7 @@ const customAgentSchema = z.object({
   systemPrompt: z.string().min(1).max(20000),
   isFinalJudge: z.boolean().optional(),
   disabled: z.boolean().optional(),
+  model: z.string().max(200).optional(),
 });
 
 const requestSchema = z.object({

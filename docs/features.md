@@ -58,3 +58,16 @@ Users can customize the agents in any council mode before running an analysis. E
 - **Reset all** — clear all customizations at once
 - Customized agent count shown in the panel header
 - Custom agent definitions are sent to the API and merged into the council at runtime, overriding only the specified fields while preserving the mode's structure
+
+### 5. Per-Agent Model Selection
+
+Each agent can be assigned a different LLM model from the list of free OpenRouter models.
+
+**Model picker:**
+- Fetches free models from OpenRouter API (`GET /api/v1/models`) with 5-minute client-side cache
+- Dedicated `/api/models` endpoint with error handling and fallback
+- Model dropdown in each agent's edit form showing all available free models
+- Purple model badge shown in the agent row when a custom model is assigned
+- Falls back to text input if models fail to load
+- Per-agent model override: each agent gets its own provider instance with the selected model
+- Unspecified agents use the default `openrouter/free` model

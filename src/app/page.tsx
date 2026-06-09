@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type {
   CouncilModeId,
   RunCouncilResult,
@@ -137,6 +137,35 @@ export default function Home() {
   const [inputError, setInputError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [customAgents, setCustomAgents] = useState<Record<string, CustomAgent>>({});
+  const [availableModels, setAvailableModels] = useState<{ id: string; name: string }[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  const [showCustomEditor, setShowCustomEditor] = useState(true);
+
+  // Fetch free models from OpenRouter on mount
+  useEffect(() => {
+    let cancelled = false;
+    const fetchModels = async () => {
+      setModelsLoading(true);
+      setModelsError(null);
+      try {
+        const res = await fetch("/api/models");
+        const data = await res.json();
+        if (!cancelled) {
+          setAvailableModels(data.models || []);
+          if (data.models?.length === 0) {
+            setModelsError("No free models available. Using default model.");
+          }
+        }
+      } catch {
+        if (!cancelled) setModelsError("Failed to fetch models. Using default model.");
+      } finally {
+        if (!cancelled) setModelsLoading(false);
+      }
+    };
+    fetchModels();
+    return () => { cancelled = true; };
+  }, []);
 
   // Inline validation
   const validateInput = useCallback((value: string): string | null => {
@@ -309,6 +338,7 @@ export default function Home() {
                 defaultAgents={getModeAgents(mode)}
                 allTemplates={getAllAgentTemplates()}
                 onChange={setCustomAgents}
+                availableModels={availableModels}
               />
 
               {/* Run Button */}

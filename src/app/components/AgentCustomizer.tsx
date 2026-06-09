@@ -1,29 +1,85 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import type { CustomAgent } from "@/core/types";
+import { useState, useCallback, useRef } from "react";
+import type { CouncilAgent, CustomAgent } from "@/core/types";
 import type { AgentTemplateInfo } from "@/app/agentData";
+
+export type ModelInfo = {
+  id: string;
+  name: string;
+};
 
 export type AgentCustomizerProps = {
   /** The default agents for the currently selected mode. */
-  defaultAgents: { id: string; name: string; role: string; systemPrompt: string; isFinalJudge?: boolean; disabled?: boolean }[];
+  defaultAgents: CouncilAgent[];
   /** All available agent templates across every council mode (deduplicated). */
   allTemplates: AgentTemplateInfo[];
   /** Callback when the user saves their customizations. */
   onChange: (customAgents: Record<string, CustomAgent>) => void;
+  /** Available free models from OpenRouter. */
+  availableModels?: ModelInfo[];
 };
 
 /**
  * Allows users to customize council agents by picking from predefined templates
  * or editing agent data (name, role, system prompt) directly.
  */
-export function AgentCustomizer({ defaultAgents, allTemplates, onChange }: AgentCustomizerProps) {
+export function AgentCustomizer({ defaultAgents, allTemplates, onChange, availableModels = [] }: AgentCustomizerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [customAgents, setCustomAgents] = useState<Record<string, CustomAgent>>({});
   const [showTemplatePicker, setShowTemplatePicker] = useState<string | null>(null);
+  // Snapshot of agent state when editing starts — used by Cancel to revert
+  const editSnapshot = useRef<Record<string, CustomAgent>>({});
 
+  const handleStartEditing = useCallback(
+    (agentId: string) => {
+      setEditingAgentId(agentId);
+      setShowTemplatePicker(null);
+      // Snapshot current custom agents so Cancel can revert
+      editSnapshot.current = { ...customAgents };
+    },
+    [customAgents],
+  );
 
+  const handleCancelEditing = useCallback(
+    (agentId: string) => {
+      // Revert to snapshot taken when editing started
+      const snapshot = editSnapshot.current;
+      // If the agent was not customized before editing, remove it from customAgents
+      // If it was customized, restore the snapshot version
+      setCustomAgents((prev) => {
+        const beforeEdit = snapshot;
+        const agentDefault = defaultAgents.find((a) => a.id === agentId);
+        const wasCustomizedBefore = !!beforeEdit[agentId];
+
+        if (!wasCustomizedBefore && !agentDefault) {
+          // Agent didn't exist before, remove any edits
+          const next = { ...prev };
+          delete next[agentId];
+          onChange(next);
+          return next;
+        }
+
+        if (!wasCustomizedBefore && agentDefault) {
+          // Agent was using defaults, remove from customAgents to restore default
+          const next = { ...prev };
+          delete next[agentId];
+          onChange(next);
+          return next;
+        }
+
+        // Agent was customized before editing, restore snapshot
+        const next = { ...prev, [agentId]: beforeEdit[agentId] };
+        onChange(next);
+        return next;
+      });
+
+      setEditingAgentId(null);
+      setShowTemplatePicker(null);
+    },
+    [defaultAgents, onChange],
+  );
 
   const getEffectiveAgent = useCallback(
     (agentId: string) => {
@@ -235,6 +291,11 @@ export function AgentCustomizer({ defaultAgents, allTemplates, onChange }: Agent
                             Custom
                           </span>
                         )}
+                        {effective?.model && !disabled && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 shrink-0" title={effective.model}>
+                            {effective.model.split("/").pop()}
+                          </span>
+                        )}
                         {disabled && (
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-700 text-zinc-500 shrink-0">
                             Off
@@ -256,15 +317,32 @@ export function AgentCustomizer({ defaultAgents, allTemplates, onChange }: Agent
                           className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${disabled ? "translate-x-0" : "translate-x-4"}`}
                         />
                       </button>
-                      <button
-                        onClick={() => {
-                          setEditingAgentId(isEditing ? null : agent.id);
-                          setShowTemplatePicker(null);
-                        }}
-                        className="px-2 py-1 text-xs rounded border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300 transition-colors"
-                      >
-                        {isEditing ? "Done" : "Edit"}
-                      </button>
+                      {isEditing ? (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={() => handleCancelEditing(agent.id)}
+                            className="px-2 py-1 text-xs rounded border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingAgentId(null);
+                              setShowTemplatePicker(null);
+                            }}
+                            className="px-2 py-1 text-xs rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleStartEditing(agent.id)}
+                          className="px-2 py-1 text-xs rounded border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300 transition-colors"
+                        >
+                          Edit
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -322,6 +400,7 @@ export function AgentCustomizer({ defaultAgents, allTemplates, onChange }: Agent
                   {/* Edit form */}
                   {isEditing && (
                     <div className="mt-3 space-y-3">
+
                       {/* Pick from template button */}
                       <button
                         onClick={() => {
@@ -360,6 +439,41 @@ export function AgentCustomizer({ defaultAgents, allTemplates, onChange }: Agent
                         />
                       </div>
 
+                      {/* Model */}
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">
+                          Model
+                        </label>
+                        {availableModels.length > 0 ? (
+                          <select
+                            value={effective?.model ?? ""}
+                            onChange={(e) => handleFieldChange(agent.id, "model", e.target.value)}
+                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="">Default (openrouter/free)</option>
+                            {availableModels.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={effective?.model ?? ""}
+                              onChange={(e) => handleFieldChange(agent.id, "model", e.target.value)}
+                              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="openrouter/free"
+                            />
+
+                          </div>
+                        )}
+                        <p className="text-[10px] text-zinc-600 mt-1">
+                          Leave empty to use the default model for all agents.
+                        </p>
+                      </div>
+
                       {/* System Prompt */}
                       <div>
                         <label className="block text-xs font-medium text-zinc-400 mb-1">
@@ -374,15 +488,36 @@ export function AgentCustomizer({ defaultAgents, allTemplates, onChange }: Agent
                         />
                       </div>
 
-                      {/* Reset this agent */}
-                      {customized && (
-                        <button
-                          onClick={() => handleResetAgent(agent.id)}
-                          className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
-                        >
-                          ↺ Reset to default
-                        </button>
-                      )}
+                      {/* Bottom: Reset / Cancel / Save */}
+                      <div className="flex items-center justify-between pt-1">
+                        <div>
+                          {customized && (
+                            <button
+                              onClick={() => handleResetAgent(agent.id)}
+                              className="text-xs text-red-400/70 hover:text-red-400 transition-colors"
+                            >
+                              ↺ Reset to default
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleCancelEditing(agent.id)}
+                            className="px-3 py-1.5 text-xs font-medium rounded border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingAgentId(null);
+                              setShowTemplatePicker(null);
+                            }}
+                            className="px-3 py-1.5 text-xs font-medium rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

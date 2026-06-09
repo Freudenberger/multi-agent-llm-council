@@ -198,6 +198,7 @@ async function runAgent(
   provider: ReturnType<typeof import("../providers").createProvider>,
   systemPrompt: string,
   userMessage: string,
+  model?: string,
 ): Promise<AgentResponse> {
   const agentStart = performance.now();
   try {
@@ -205,9 +206,13 @@ async function runAgent(
       runId,
       agentId: agent.id,
       isFinalJudge: agent.isFinalJudge ?? false,
+      model: model ?? "default",
     });
 
-    const result = await provider.generate({
+    // Use per-agent model if specified, otherwise fall back to shared provider
+    const agentProvider = model ? createProvider(model) : provider;
+
+    const result = await agentProvider.generate({
       systemPrompt,
       userMessage,
       temperature: 0.7,
@@ -276,6 +281,7 @@ async function runSpecialists(
             provider,
             agent.systemPrompt,
             buildAgentUserMessage(input.mode, input.input, agent),
+            agent.model,
           ),
         ),
       ),
@@ -346,7 +352,7 @@ async function runJudge(
     async () => {
       const { result, durationMs } = await timed(
         "Phase 2: Final judge",
-        () => runAgent(finalJudge, runId, provider, systemPrompt, userMessage),
+        () => runAgent(finalJudge, runId, provider, systemPrompt, userMessage, finalJudge.model),
         { runId, phase: "final-judge" },
       );
       return { result, durationMs };

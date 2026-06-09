@@ -14,6 +14,7 @@ import { OpenRouterProvider } from "./openRouterProvider";
  *   LLM_REQUEST_TIMEOUT=60000
  */
 export function createProvider(
+  model?: string,
   retryConfig?: RetryConfig,
   timeoutConfig?: TimeoutConfig,
 ): LLMProvider {
@@ -25,7 +26,7 @@ export function createProvider(
     case "openrouter":
       return new OpenRouterProvider(
         undefined,
-        undefined,
+        model || undefined,
         retryConfig,
         timeoutConfig,
       );

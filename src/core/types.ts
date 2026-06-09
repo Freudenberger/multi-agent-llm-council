@@ -17,6 +17,8 @@ export type CouncilAgent = {
   isFinalJudge?: boolean;
   /** If true, this agent is excluded from the council run. Defaults to false. */
   disabled?: boolean;
+  /** OpenRouter model identifier for this agent, e.g. "openrouter/free". */
+  model?: string;
 };
 
 export type CouncilMode = {
@@ -75,6 +77,8 @@ export type CustomAgent = {
   isFinalJudge?: boolean;
   /** If true, this agent is excluded from the council run. Defaults to false. */
   disabled?: boolean;
+  /** OpenRouter model identifier for this agent, e.g. "openrouter/free" or "anthropic/claude-sonnet-4-20250514". */
+  model?: string;
 };
 
 export type RunCouncilInput = {
