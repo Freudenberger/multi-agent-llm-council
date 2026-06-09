@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [savedKeys, setSavedKeys] = useState<Record<string, { apiKey: string }>>({});
+  const [validatedKeys, setValidatedKeys] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -45,6 +46,7 @@ export default function SettingsPage() {
       .then((data: SettingsResponse) => {
         setProviders(data.providers);
         setSavedKeys(data.settings);
+        setValidatedKeys({});
         // Initialize empty input fields
         const keys: Record<string, string> = {};
         for (const p of data.providers) {
@@ -91,6 +93,7 @@ export default function SettingsPage() {
         cleared[p.id] = "";
       }
       setApiKeys(cleared);
+      setValidatedKeys({});
       // Reload to get updated masked keys
       const reload = await fetch("/api/user/settings");
       const reloadData: SettingsResponse = await reload.json();
@@ -123,6 +126,22 @@ export default function SettingsPage() {
       setMessage({ type: "error", text: "Failed to remove API key" });
     }
   }, []);
+
+  const handleApiKeyChange = useCallback((providerId: string, val: string) => {
+    setApiKeys((prev) => ({ ...prev, [providerId]: val }));
+    setValidatedKeys((prev) => {
+      if (prev[providerId] === val.trim()) return prev;
+      const next = { ...prev };
+      delete next[providerId];
+      return next;
+    });
+  }, []);
+
+  const canSave =
+    Object.values(apiKeys).some((value) => value.trim().length > 0) &&
+    Object.entries(apiKeys).every(([providerId, value]) =>
+      !value.trim() || validatedKeys[providerId] === value.trim(),
+    );
 
   if (status === "loading" || loading) {
     return (
@@ -168,9 +187,13 @@ export default function SettingsPage() {
               loading={loading}
               saving={saving}
               message={message}
-              onApiKeyChange={(providerId, val) =>
-                setApiKeys((prev) => ({ ...prev, [providerId]: val }))
-              }              onApiKeyRemove={handleRemove}              onSave={handleSave}
+              canSave={canSave}
+              onApiKeyChange={handleApiKeyChange}
+              onApiKeyRemove={handleRemove}
+              onSave={handleSave}
+              onTestSuccess={(providerId, key) =>
+                setValidatedKeys((prev) => ({ ...prev, [providerId]: key }))
+              }
             />
           )}
         </div>
@@ -212,6 +235,8 @@ function ProvidersTab({
   onApiKeyChange,
   onApiKeyRemove,
   onSave,
+  onTestSuccess,
+  canSave,
 }: {
   providers: ProviderInfo[];
   apiKeys: Record<string, string>;
@@ -222,6 +247,8 @@ function ProvidersTab({
   onApiKeyChange: (providerId: string, val: string) => void;
   onApiKeyRemove: (providerId: string) => void;
   onSave: () => void;
+  onTestSuccess: (providerId: string, key: string) => void;
+  canSave: boolean;
 }) {
   if (loading) {
     return (
@@ -259,6 +286,7 @@ function ProvidersTab({
             value={apiKeys[provider.id] ?? ""}
             onChange={(val) => onApiKeyChange(provider.id, val)}
             onRemove={() => onApiKeyRemove(provider.id)}
+            onTestSuccess={onTestSuccess}
           />
         ))}
       </div>
@@ -273,7 +301,7 @@ function ProvidersTab({
       <div className="flex items-center gap-4 pt-2">
         <button
           onClick={onSave}
-          disabled={saving}
+          disabled={saving || !canSave}
           className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-medium rounded-lg transition-colors"
         >
           {saving ? (
@@ -302,12 +330,14 @@ function ProviderKeyCard({
   value,
   onChange,
   onRemove,
+  onTestSuccess,
 }: {
   provider: ProviderInfo;
   savedKey: string;
   value: string;
   onChange: (val: string) => void;
   onRemove: () => void;
+  onTestSuccess: (providerId: string, key: string) => void;
 }) {
   const [showKey, setShowKey] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -341,6 +371,10 @@ function ProviderKeyCard({
       if (!response.ok) {
         setTestMessage({ type: "error", text: data.error || "API key validation failed." });
       } else {
+        const validatedKey = hasInputKey ? value.trim() : "";
+        if (hasInputKey) {
+          onTestSuccess(provider.id, validatedKey);
+        }
         setTestMessage({ type: "success", text: data.message || "API key validated successfully." });
       }
     } catch {

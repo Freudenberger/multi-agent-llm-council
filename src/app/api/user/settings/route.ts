@@ -50,7 +50,7 @@ export async function GET() {
       maskedSettings[providerId] = {
         apiKey:
           setting.apiKey.length > 4
-            ? "*".repeat(setting.apiKey.length - 4) + setting.apiKey.slice(-4)
+            ? "*".repeat(setting.apiKey.length / 4)
             : "****",
       };
     }
