@@ -13,6 +13,7 @@ import type { ConversationSummary } from "@/storage/types";
 import { Markdown } from "./components/Markdown";
 import { AgentCustomizer } from "./components/AgentCustomizer";
 import { UserMenu } from "./components/UserMenu";
+import { HistorySidebar } from "./components/HistorySidebar";
 import { getModeAgents, getAllAgentTemplates } from "./agentData";
 
 const MODES: {
@@ -147,6 +148,14 @@ export default function Home() {
   const [history, setHistory] = useState<ConversationSummary[]>([]);
 
   const { data: session } = useSession();
+
+  // Load a saved conversation into the main view
+  const handleLoadConversation = useCallback((conversation: RunCouncilResult) => {
+    setResult(conversation);
+    setInput(conversation.userInput);
+    setMode(conversation.modeId);
+    setError(null);
+  }, []);
 
   // Fetch free models from OpenRouter on mount
   useEffect(() => {
@@ -305,7 +314,10 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <UserMenu />
+          <div className="flex items-center gap-3">
+            <HistorySidebar onLoad={handleLoadConversation} currentResultId={result?.id ?? null} />
+            <UserMenu />
+          </div>
         </div>
       </header>
 

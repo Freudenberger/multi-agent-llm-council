@@ -71,3 +71,28 @@ Each agent can be assigned a different LLM model from the list of free OpenRoute
 - Falls back to text input if models fail to load
 - Per-agent model override: each agent gets its own provider instance with the selected model
 - Unspecified agents use the default `openrouter/free` model
+
+### 6. Save, Load, and Export Council Sessions
+
+Logged-in users can save, revisit, and export their council analyses. Unauthenticated users get no persistence — nothing is stored.
+
+**Save:**
+- Conversations are automatically saved to storage after each council run (only when authenticated)
+- Each conversation stores: user input, selected mode, all agent responses, judge response, final report, and timestamps
+- Maximum 3 sessions per user; oldest is automatically deleted when a new one is saved
+
+**Load:**
+- History button in the header shows saved sessions count
+- Expandable sidebar panel lists all saved sessions with title, mode, and timestamp
+- Click to expand and preview input, agents, and summary
+- "Load Session" button restores the full conversation into the main view (input, mode, and results)
+
+**Export:**
+- JSON export — full structured data including all responses and metadata
+- Markdown export — human-readable report with input, all agent responses, and the final synthesis
+- Delete button per session with hover-reveal UX
+
+**Storage:**
+- Backend-agnostic via `StorageProvider` interface: local JSON files (default) or Supabase PostgreSQL
+- Switch via `DB_PROVIDER` environment variable
+- All storage operations require authentication; unauthenticated requests are never persisted
