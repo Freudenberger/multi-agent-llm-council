@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { User } from "./types";
+import type { User, ProviderSettings } from "./types";
 import { logger } from "../core/logger";
 
 /**
@@ -53,5 +53,15 @@ export const userStorage = {
 
   getAll(): User[] {
     return readUsers();
+  },
+
+  updateProviderSettings(userId: string, providerSettings: ProviderSettings): User | null {
+    const users = readUsers();
+    const index = users.findIndex((u) => u.id === userId);
+    if (index === -1) return null;
+    users[index] = { ...users[index], providerSettings };
+    writeUsers(users);
+    logger.info("User provider settings updated", { userId });
+    return users[index];
   },
 };

@@ -75,6 +75,13 @@ export function UserMenu() {
               <p className="text-xs text-zinc-500 truncate">{session.user.email}</p>
             </div>
             <div className="py-1">
+              <Link
+                href="/settings"
+                onClick={() => setOpen(false)}
+                className="block w-full text-left px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+              >
+                ⚙️ Settings
+              </Link>
               <button
                 onClick={handleSignOut}
                 className="w-full text-left px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
