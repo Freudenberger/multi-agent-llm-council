@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./AuthProvider";
 
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -17,6 +18,9 @@ export const metadata: Metadata = {
   title: "Multi-Agent LLM Council",
   description:
     "Analyze questions, problems, and ideas using multiple specialized LLM agents with different perspectives.",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({

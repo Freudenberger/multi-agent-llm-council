@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -306,7 +306,7 @@ export default function Home() {
       <header className="border-b border-zinc-800 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🏛️</span>
+            <img src="/icon.png" alt="LLM Council" className="w-12 h-12 rounded-md" />
             <div>
               <h1 className="text-xl font-bold tracking-tight">Multi-Agent LLM Council</h1>
               <p className="text-sm text-zinc-400">
