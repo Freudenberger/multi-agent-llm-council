@@ -10,7 +10,7 @@ import type {
   CustomAgent,
 } from "@/core/types";
 import type { ConversationSummary } from "@/storage/types";
-import { Markdown } from "./components/Markdown";
+import { Markdown, InlineMarkdown } from "./components/Markdown";
 import { AgentCustomizer } from "./components/AgentCustomizer";
 import { UserMenu } from "./components/UserMenu";
 import { HistorySidebar } from "./components/HistorySidebar";
@@ -646,7 +646,9 @@ function FinalReportCard({ report }: { report: FinalReport }) {
             </h3>
             <ul className="list-disc list-inside space-y-1 text-zinc-700 dark:text-zinc-300">
               {report.keyConclusions.map((c: string, i: number) => (
-                <li key={i}>{c}</li>
+                <li key={i}>
+                  <InlineMarkdown content={c} />
+                </li>
               ))}
             </ul>
           </div>
@@ -662,7 +664,7 @@ function FinalReportCard({ report }: { report: FinalReport }) {
               <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
                 {report.agreements.map((a: string, i: number) => (
                   <li key={i} className="text-sm">
-                    • {a}
+                    • <InlineMarkdown content={a} />
                   </li>
                 ))}
               </ul>
@@ -677,7 +679,7 @@ function FinalReportCard({ report }: { report: FinalReport }) {
               <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
                 {report.disagreements.map((d: string, i: number) => (
                   <li key={i} className="text-sm">
-                    • {d}
+                    • <InlineMarkdown content={d} />
                   </li>
                 ))}
               </ul>
@@ -694,7 +696,7 @@ function FinalReportCard({ report }: { report: FinalReport }) {
             <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
               {report.risks.map((r: string, i: number) => (
                 <li key={i} className="text-sm">
-                  • {r}
+                  • <InlineMarkdown content={r} />
                 </li>
               ))}
             </ul>
@@ -710,7 +712,7 @@ function FinalReportCard({ report }: { report: FinalReport }) {
             <ol className="list-decimal list-inside space-y-1 text-zinc-700 dark:text-zinc-300">
               {report.recommendations.map((r: string, i: number) => (
                 <li key={i} className="text-sm">
-                  {r}
+                  <InlineMarkdown content={r} />
                 </li>
               ))}
             </ol>

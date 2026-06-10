@@ -258,6 +258,16 @@ export function Markdown({ content }: { content: string }): ReactNode {
   return <div className="markdown-content">{elements}</div>;
 }
 
+/**
+ * Renders a single line of inline markdown (bold, italic, inline code, links)
+ * without any surrounding block element. Use this for content that already
+ * lives inside a block — e.g. `<li>` items in the Final Synthesis Report —
+ * where the full `Markdown` block renderer would wrap text in `<p>`/`<div>`.
+ */
+export function InlineMarkdown({ content }: { content: string }): ReactNode {
+  return <>{renderInline(content)}</>;
+}
+
 /** Render inline markdown: bold, italic, inline code, links */
 function renderInline(text: string): ReactNode[] {
   const nodes: React.ReactNode[] = [];
