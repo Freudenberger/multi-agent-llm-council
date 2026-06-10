@@ -1,6 +1,20 @@
 @import "tailwindcss";
 
+/*
+ * Class-based dark mode (SR-14). `dark:` utilities apply when an ancestor
+ * carries the `.dark` class — set by the no-FOUC script in layout.tsx and
+ * toggled by ThemeToggle. Default theme is dark (preserves the original look).
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  /* Light theme — the CSS base. */
+  --background: #fafafa;
+  --foreground: #18181b;
+}
+
+.dark {
+  /* Dark theme. */
   --background: #0a0a0a;
   --foreground: #ededed;
 }
@@ -16,4 +30,36 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Accessibility (SR-10): a visible, high-contrast focus ring for keyboard
+ * users on every focusable element. `:focus-visible` keeps it from showing on
+ * mouse clicks.
+ */
+:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/*
+ * PDF export (SR-13): "Export PDF" calls window.print(); the browser's
+ * Save-as-PDF produces the file. Chrome (header/inputs/footer) is hidden via
+ * Tailwind's `print:hidden` utility in the markup; here we just normalise the
+ * page to ink-on-paper and drop animations.
+ */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+  }
 }

@@ -13,6 +13,23 @@
 
 export type LogLevel = "debug" | "info" | "error";
 
+export type LogData = Record<string, unknown>;
+
+export interface Logger {
+  debug(message: string, data?: LogData): void;
+  info(message: string, data?: LogData): void;
+  error(message: string, data?: LogData): void;
+  /** Returns the currently active log level. */
+  getLevel(): LogLevel;
+  /**
+   * Returns a logger whose every line is tagged with `context` (e.g. a runId),
+   * so a whole request can be correlated across modules without threading the
+   * id through every call. Per-call `data` overrides the bound context on key
+   * collisions.
+   */
+  child(context: LogData): Logger;
+}
+
 const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   debug: 0,
   info: 1,
@@ -45,30 +62,43 @@ function formatMessage(
   return `${prefix} ${message}`;
 }
 
-export const logger = {
-  debug(message: string, data?: Record<string, unknown>): void {
-    if (shouldLog("debug")) {
-      console.debug(formatMessage("debug", message, data));
-    }
-  },
+function createLogger(baseContext: LogData = {}): Logger {
+  const hasContext = Object.keys(baseContext).length > 0;
+  const merge = (data?: LogData): LogData | undefined => {
+    if (!hasContext) return data;
+    return { ...baseContext, ...data };
+  };
 
-  info(message: string, data?: Record<string, unknown>): void {
-    if (shouldLog("info")) {
-      console.log(formatMessage("info", message, data));
-    }
-  },
+  return {
+    debug(message: string, data?: LogData): void {
+      if (shouldLog("debug")) {
+        console.debug(formatMessage("debug", message, merge(data)));
+      }
+    },
 
-  error(message: string, data?: Record<string, unknown>): void {
-    if (shouldLog("error")) {
-      console.error(formatMessage("error", message, data));
-    }
-  },
+    info(message: string, data?: LogData): void {
+      if (shouldLog("info")) {
+        console.log(formatMessage("info", message, merge(data)));
+      }
+    },
 
-  /** Returns the currently active log level. */
-  getLevel(): LogLevel {
-    return getConfiguredLevel();
-  },
-};
+    error(message: string, data?: LogData): void {
+      if (shouldLog("error")) {
+        console.error(formatMessage("error", message, merge(data)));
+      }
+    },
+
+    getLevel(): LogLevel {
+      return getConfiguredLevel();
+    },
+
+    child(context: LogData): Logger {
+      return createLogger({ ...baseContext, ...context });
+    },
+  };
+}
+
+export const logger: Logger = createLogger();
 
 /**
  * Times an async operation and returns [result, durationMs].

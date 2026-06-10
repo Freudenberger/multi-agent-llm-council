@@ -99,9 +99,18 @@ function errorResponse(error: unknown) {
   };
 }
 
+/** Generate a request/run id used to correlate every log line for this call. */
+function generateRunId(): string {
+  return `council-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+}
+
 export async function POST(request: NextRequest) {
   const start = performance.now();
-  logger.info("API request received", { method: "POST", path: "/api/council" });
+  // One id for the whole request: bound onto the logger here and passed into
+  // runCouncil so the API lines and the council lines share the same runId.
+  const runId = generateRunId();
+  const log = logger.child({ runId });
+  log.info("API request received", { method: "POST", path: "/api/council" });
 
   // Parse JSON body
   let body: unknown;
@@ -122,7 +131,7 @@ export async function POST(request: NextRequest) {
   const validation = requestSchema.safeParse(body);
   if (!validation.success) {
     const fields = validation.error.flatten().fieldErrors;
-    logger.info("API validation failed", { errors: fields });
+    log.info("API validation failed", { errors: fields });
     return NextResponse.json(
       {
         error: "Validation failed",
@@ -134,7 +143,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  logger.debug("API request validated", {
+  log.debug("API request validated", {
     mode: validation.data.mode,
     inputLength: validation.data.input.length,
   });
@@ -142,14 +151,14 @@ export async function POST(request: NextRequest) {
   // Run council
   try {
     const result = await runCouncil({
+      runId,
       input: validation.data.input,
       mode: validation.data.mode,
       customAgents: validation.data.customAgents,
     });
 
     const durationMs = Math.round(performance.now() - start);
-    logger.info("API request completed", {
-      runId: result.id,
+    log.info("API request completed", {
       mode: result.modeId,
       durationMs,
       agentCount: result.agentResponses.length,
@@ -168,8 +177,7 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         title,
       });
-      logger.info("Conversation saved for user", {
-        runId: result.id,
+      log.info("Conversation saved for user", {
         userId: session.user.id,
       });
     }
@@ -179,7 +187,7 @@ export async function POST(request: NextRequest) {
     const durationMs = Math.round(performance.now() - start);
     const { status, body: errorBody } = errorResponse(error);
 
-    logger.error("API request failed", {
+    log.error("API request failed", {
       durationMs,
       status,
       error: errorBody.error,

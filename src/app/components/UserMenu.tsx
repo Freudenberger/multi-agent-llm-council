@@ -29,7 +29,7 @@ export function UserMenu() {
   // Loading state
   if (status === "loading") {
     return (
-      <div className="w-8 h-8 rounded-full bg-zinc-800 animate-pulse" />
+      <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 animate-pulse" />
     );
   }
 
@@ -46,13 +46,16 @@ export function UserMenu() {
       <div ref={menuRef} className="relative">
         <button
           onClick={() => setOpen(!open)}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label="Account menu"
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           title={session.user.email || ""}
         >
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">
             {initials}
           </div>
-          <span className="hidden sm:block text-sm text-zinc-300 max-w-[120px] truncate">
+          <span className="hidden sm:block text-sm text-zinc-600 dark:text-zinc-300 max-w-[120px] truncate">
             {session.user.name || session.user.email}
           </span>
           <svg
@@ -67,9 +70,9 @@ export function UserMenu() {
         </button>
 
         {open && (
-          <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
-            <div className="px-4 py-3 border-b border-zinc-800">
-              <p className="text-sm font-medium text-zinc-200 truncate">
+          <div role="menu" className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
+            <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
+              <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">
                 {session.user.name || "User"}
               </p>
               <p className="text-xs text-zinc-500 truncate">{session.user.email}</p>
@@ -77,14 +80,16 @@ export function UserMenu() {
             <div className="py-1">
               <Link
                 href="/settings"
+                role="menuitem"
                 onClick={() => setOpen(false)}
-                className="block w-full text-left px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                className="block w-full text-left px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               >
                 ⚙️ Settings
               </Link>
               <button
+                role="menuitem"
                 onClick={handleSignOut}
-                className="w-full text-left px-4 py-2 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                className="w-full text-left px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               >
                 Sign out
               </button>
@@ -100,7 +105,7 @@ export function UserMenu() {
     <div className="flex items-center gap-2">
       <Link
         href="/login"
-        className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+        className="px-3 py-1.5 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
       >
         Sign in
       </Link>

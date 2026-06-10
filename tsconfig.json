@@ -37,7 +37,9 @@
     "**/*.mts",
     "tests/e2e/tsconfig.json",
     ".next-e2e/types/**/*.ts",
-    ".next-e2e/dev/types/**/*.ts"
+    ".next-e2e/dev/types/**/*.ts",
+    ".next-fresh/types/**/*.ts",
+    ".next-fresh/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

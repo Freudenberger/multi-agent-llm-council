@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
@@ -14,6 +14,7 @@ import { Markdown } from "./components/Markdown";
 import { AgentCustomizer } from "./components/AgentCustomizer";
 import { UserMenu } from "./components/UserMenu";
 import { HistorySidebar } from "./components/HistorySidebar";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { getModeAgents, getAllAgentTemplates } from "./agentData";
 
 const MODES: {
@@ -27,7 +28,7 @@ const MODES: {
   {
     id: "decision",
     name: "Decision",
-    fullName: "Decision Council",    
+    fullName: "Decision Council",
     description: "Analyze a decision from multiple perspectives",
     agents: [
       { name: "Optimist", role: "Finds opportunities and positive outcomes" },
@@ -304,21 +305,37 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   }, [result]);
 
+  // PDF export (SR-13): hand off to the browser's print pipeline. The print
+  // stylesheet + `print:hidden` chrome leave only the report on the page, so
+  // the user's "Save as PDF" produces a clean document.
+  const exportPdf = useCallback(() => {
+    window.print();
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Skip link — first focusable element, visible only when focused (SR-10) */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:rounded-md focus:bg-blue-600 focus:px-4 focus:py-2 focus:text-white"
+      >
+        Skip to main content
+      </a>
+
       {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4">
+      <header className="border-b border-zinc-200 dark:border-zinc-800 px-6 py-4 print:hidden">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <img src="/icon.png" alt="LLM Council" className="w-12 h-12 rounded-md" />
+            <img src="/icon.png" alt="" className="w-12 h-12 rounded-md" />
             <div>
               <h1 className="text-xl font-bold tracking-tight">Multi-Agent LLM Council</h1>
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
                 Multi-perspective analysis using specialized AI agents
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <HistorySidebar onLoad={handleLoadConversation} currentResultId={result?.id ?? null} />
             <UserMenu />
           </div>
@@ -326,10 +343,10 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 px-6 py-8">
+      <main id="main-content" tabIndex={-1} className="flex-1 px-6 py-8 focus:outline-none">
         <div className="max-w-5xl mx-auto space-y-8">
           {/* Input Section — two column layout */}
-          <section className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          <section className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:hidden">
             {/* Left column: input + mode selector + run */}
             <div className="space-y-4 min-w-0">
               <div>
@@ -339,13 +356,15 @@ export default function Home() {
                 <textarea
                   id="council-input"
                   value={input}
+                  aria-describedby="council-input-hint"
+                  aria-invalid={inputError ? true : undefined}
                   onChange={(e) => {
                     setInput(e.target.value);
                     if (inputError) setInputError(null);
                   }}
                   placeholder="Enter your question, problem, idea, or text for analysis..."
-                  className={`w-full h-32 px-4 py-3 bg-zinc-900 border rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
-                    inputError ? "border-amber-500/50" : "border-zinc-700"
+                  className={`w-full h-32 px-4 py-3 bg-white dark:bg-zinc-900 border rounded-lg text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
+                    inputError ? "border-amber-500/50" : "border-zinc-300 dark:border-zinc-700"
                   }`}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -354,24 +373,26 @@ export default function Home() {
                   }}
                 />
                 {inputError && (
-                  <p className="mt-1.5 text-sm text-amber-400 flex items-center gap-1.5">
-                    <span>⚠</span> {inputError}
+                  <p role="alert" className="mt-1.5 text-sm text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                    <span aria-hidden="true">⚠</span> {inputError}
                   </p>
                 )}
               </div>
 
               {/* Mode Selection — compact buttons */}
               <div>
-                <label className="block text-sm font-medium mb-2">Analysis Mode</label>
-                <div className="flex flex-wrap gap-2">
+                <label id="mode-label" className="block text-sm font-medium mb-2">Analysis Mode</label>
+                <div className="flex flex-wrap gap-2" role="group" aria-labelledby="mode-label">
                   {MODES.map((m) => (
                     <button
                       key={m.id}
+                      type="button"
                       onClick={() => setMode(m.id)}
+                      aria-pressed={mode === m.id}
                       className={`px-3 py-1.5 text-sm rounded-md border transition-all ${
                         mode === m.id
-                          ? "border-blue-500 bg-blue-500/10 text-blue-300 ring-1 ring-blue-500"
-                          : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300"
+                          ? "border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500"
+                          : "border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
                       }`}
                     >
                       {m.name}
@@ -390,20 +411,22 @@ export default function Home() {
 
               {/* Run Button */}
               <button
+                type="button"
                 onClick={runAnalysis}
                 disabled={loading || !input.trim()}
-                className="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-medium rounded-lg transition-colors"
+                aria-busy={loading}
+                className="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-medium rounded-lg transition-colors"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span aria-hidden="true" className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Analyzing...
                   </span>
                 ) : (
                   "🏛️ Run Council Analysis"
                 )}
               </button>
-              <p className="text-xs text-zinc-500">
+              <p id="council-input-hint" className="text-xs text-zinc-500">
                 Press Ctrl+Enter to run. Analysis may take 10-30 seconds.
               </p>
             </div>
@@ -417,12 +440,13 @@ export default function Home() {
           {/* Error */}
           {error && (
             <div
-              className={`p-4 rounded-lg border ${
+              role="alert"
+              className={`p-4 rounded-lg border print:hidden ${
                 error.type === "validation"
-                  ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                  ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
                   : error.type === "timeout"
-                    ? "bg-orange-500/10 border-orange-500/30 text-orange-300"
-                    : "bg-red-500/10 border-red-500/30 text-red-400"
+                    ? "bg-orange-500/10 border-orange-500/30 text-orange-700 dark:text-orange-300"
+                    : "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
               }`}
             >
               <div className="flex items-start justify-between gap-4">
@@ -432,9 +456,10 @@ export default function Home() {
                 </div>
                 {error.retryable && (
                   <button
+                    type="button"
                     onClick={runAnalysis}
                     disabled={loading}
-                    className="shrink-0 px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-md transition-colors disabled:opacity-50"
+                    className="shrink-0 px-3 py-1.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-md transition-colors disabled:opacity-50"
                   >
                     ↻ Retry
                   </button>
@@ -445,18 +470,18 @@ export default function Home() {
 
           {/* Loading State */}
           {loading && (
-            <div className="border border-zinc-700 rounded-lg overflow-hidden">
-              <div className="p-8 bg-zinc-900 flex flex-col items-center gap-4">
+            <div role="status" aria-live="polite" className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden print:hidden">
+              <div className="p-8 bg-white dark:bg-zinc-900 flex flex-col items-center gap-4">
                 <div className="relative">
-                  <div className="w-12 h-12 rounded-full border-4 border-zinc-700 border-t-blue-500 animate-spin" />
+                  <div aria-hidden="true" className="w-12 h-12 rounded-full border-4 border-zinc-200 dark:border-zinc-700 border-t-blue-500 animate-spin" />
                 </div>
                 <div className="text-center">
-                  <p className="text-zinc-200 font-medium">Council in Session</p>
-                  <p className="text-sm text-zinc-400 mt-1">
+                  <p className="text-zinc-800 dark:text-zinc-200 font-medium">Council in Session</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
                     Specialist agents are analyzing your input...
                   </p>
                 </div>
-                <div className="flex gap-2 mt-2">
+                <div aria-hidden="true" className="flex gap-2 mt-2">
                   <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
                   <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
                   <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
@@ -482,12 +507,22 @@ export default function Home() {
               <section>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">Final Synthesis Report</h2>
-                  <button
-                    onClick={copyResult}
-                    className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg transition-colors"
-                  >
-                    {copied ? "✓ Copied!" : "📋 Copy Report"}
-                  </button>
+                  <div className="flex items-center gap-2 print:hidden">
+                    <button
+                      type="button"
+                      onClick={exportPdf}
+                      className="px-4 py-2 text-sm bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 rounded-lg transition-colors"
+                    >
+                      🖨️ Export PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={copyResult}
+                      className="px-4 py-2 text-sm bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 rounded-lg transition-colors"
+                    >
+                      {copied ? "✓ Copied!" : "📋 Copy Report"}
+                    </button>
+                  </div>
                 </div>
                 <FinalReportCard report={result.finalReport} />
               </section>
@@ -497,9 +532,9 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-800 px-6 py-4 text-center text-xs text-zinc-500">
-        Multi-Agent LLM Council — This tool supports analysis by showing multiple perspectives.
-        It does not guarantee correctness.
+      <footer className="border-t border-zinc-200 dark:border-zinc-800 px-6 py-4 text-center text-xs text-zinc-500 print:hidden">
+        Multi-Agent LLM Council - Supports analysis by showing multiple perspectives.
+        Does not guarantee correctness. Created by <a href="https://github.com/Freudenberger" className="text-blue-500 hover:underline">Freudenberger</a>.
       </footer>
     </div>
   );
@@ -507,24 +542,24 @@ export default function Home() {
 
 function ModeDetailsPanel({ mode }: { mode: (typeof MODES)[number] }) {
   return (
-    <div className="border border-zinc-700 rounded-lg bg-zinc-900 overflow-hidden">
+    <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-zinc-800">
-        <h3 className="font-semibold text-xs text-zinc-100">{mode.fullName || mode.name}</h3>
+      <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800">
+        <h3 className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">{mode.fullName || mode.name}</h3>
         <p className="text-[11px] text-zinc-500 mt-0.5 leading-snug">{mode.description}</p>
       </div>
 
       {/* Agents */}
-      <div className="px-3 py-2 border-b border-zinc-800">
+      <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800">
         <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1">
           Agents ({mode.agents.length})
         </p>
         <div className="space-y-1">
           {mode.agents.map((agent, i) => (
             <div key={i} className="flex items-baseline gap-1.5">
-              <span className="text-blue-400 text-[10px] shrink-0">•</span>
-              <span className="text-xs font-medium text-zinc-300">{agent.name}</span>
-              <span className="text-[10px] text-zinc-600">— {agent.role}</span>
+              <span aria-hidden="true" className="text-blue-500 dark:text-blue-400 text-[10px] shrink-0">•</span>
+              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{agent.name}</span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-600">— {agent.role}</span>
             </div>
           ))}
         </div>
@@ -538,7 +573,7 @@ function ModeDetailsPanel({ mode }: { mode: (typeof MODES)[number] }) {
         <ul className="space-y-0.5">
           {mode.bestFor.map((useCase, i) => (
             <li key={i} className="text-[11px] text-zinc-500 flex items-baseline gap-1.5">
-              <span className="text-green-500 shrink-0">✓</span>
+              <span aria-hidden="true" className="text-green-600 dark:text-green-500 shrink-0">✓</span>
               <span className="leading-snug">{useCase}</span>
             </li>
           ))}
@@ -551,30 +586,35 @@ function ModeDetailsPanel({ mode }: { mode: (typeof MODES)[number] }) {
 function AgentResponseCard({ response }: { response: AgentResponse }) {
   const [expanded, setExpanded] = useState(false);
   const isError = response.content.startsWith("[Error:");
+  const panelId = `agent-panel-${response.agentId}`;
 
   return (
     <div
       className={`border rounded-lg overflow-hidden ${
-        isError ? "border-red-500/30" : "border-zinc-700"
+        isError ? "border-red-500/30" : "border-zinc-200 dark:border-zinc-700"
       }`}
     >
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-zinc-900 hover:bg-zinc-800/50 transition-colors text-left"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors text-left"
       >
         <div className="flex items-center gap-3">
-          <span className="text-lg">🤖</span>
+          <span aria-hidden="true" className="text-lg">🤖</span>
           <div>
             <div className="font-medium text-sm">{response.agentName}</div>
-            <div className="text-xs text-zinc-400">
-              Confidence: {"⭐".repeat(response.confidence)}
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              <span aria-hidden="true">Confidence: {"⭐".repeat(response.confidence)}</span>
+              <span className="sr-only">Confidence: {response.confidence} of 5</span>
             </div>
           </div>
         </div>
-        <span className="text-zinc-400">{expanded ? "▲" : "▼"}</span>
+        <span aria-hidden="true" className="text-zinc-500 dark:text-zinc-400">{expanded ? "▲" : "▼"}</span>
       </button>
       {expanded && (
-        <div className="px-4 py-3 bg-zinc-950/50 text-sm text-zinc-300">
+        <div id={panelId} className="px-4 py-3 bg-zinc-50 dark:bg-zinc-950/50 text-sm text-zinc-700 dark:text-zinc-300">
           <Markdown content={response.content} />
         </div>
       )}
@@ -584,15 +624,15 @@ function AgentResponseCard({ response }: { response: AgentResponse }) {
 
 function FinalReportCard({ report }: { report: FinalReport }) {
   return (
-    <div className="border border-zinc-700 rounded-lg overflow-hidden">
-      <div className="p-6 bg-zinc-900 space-y-6">
+    <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
+      <div className="p-6 bg-white dark:bg-zinc-900 space-y-6">
         {/* Summary */}
         {report.summary && (
           <div>
-            <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+            <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
               Summary
             </h3>
-            <div className="text-zinc-200" id="summary">
+            <div className="text-zinc-800 dark:text-zinc-200" id="summary">
               <Markdown content={report.summary} />
             </div>
           </div>
@@ -601,10 +641,10 @@ function FinalReportCard({ report }: { report: FinalReport }) {
         {/* Key Conclusions */}
         {report.keyConclusions.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-2">
+            <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
               Key Conclusions
             </h3>
-            <ul className="list-disc list-inside space-y-1 text-zinc-300">
+            <ul className="list-disc list-inside space-y-1 text-zinc-700 dark:text-zinc-300">
               {report.keyConclusions.map((c: string, i: number) => (
                 <li key={i}>{c}</li>
               ))}
@@ -616,10 +656,10 @@ function FinalReportCard({ report }: { report: FinalReport }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {report.agreements.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-green-400 uppercase tracking-wider mb-2">
+              <h3 className="text-sm font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider mb-2">
                 ✓ Agreements
               </h3>
-              <ul className="space-y-1 text-zinc-300">
+              <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
                 {report.agreements.map((a: string, i: number) => (
                   <li key={i} className="text-sm">
                     • {a}
@@ -631,10 +671,10 @@ function FinalReportCard({ report }: { report: FinalReport }) {
 
           {report.disagreements.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-amber-400 uppercase tracking-wider mb-2">
+              <h3 className="text-sm font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-2">
                 ✗ Disagreements
               </h3>
-              <ul className="space-y-1 text-zinc-300">
+              <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
                 {report.disagreements.map((d: string, i: number) => (
                   <li key={i} className="text-sm">
                     • {d}
@@ -648,10 +688,10 @@ function FinalReportCard({ report }: { report: FinalReport }) {
         {/* Risks */}
         {report.risks.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-2">
+            <h3 className="text-sm font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-2">
               ⚠ Risks &amp; Limitations
             </h3>
-            <ul className="space-y-1 text-zinc-300">
+            <ul className="space-y-1 text-zinc-700 dark:text-zinc-300">
               {report.risks.map((r: string, i: number) => (
                 <li key={i} className="text-sm">
                   • {r}
@@ -664,10 +704,10 @@ function FinalReportCard({ report }: { report: FinalReport }) {
         {/* Recommendations */}
         {report.recommendations.length > 0 && (
           <div>
-            <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-2">
+            <h3 className="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-2">
               Recommendations
             </h3>
-            <ol className="list-decimal list-inside space-y-1 text-zinc-300">
+            <ol className="list-decimal list-inside space-y-1 text-zinc-700 dark:text-zinc-300">
               {report.recommendations.map((r: string, i: number) => (
                 <li key={i} className="text-sm">
                   {r}
@@ -678,22 +718,23 @@ function FinalReportCard({ report }: { report: FinalReport }) {
         )}
 
         {/* Confidence Score */}
-        <div className="pt-4 border-t border-zinc-700">
+        <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-zinc-400">Confidence Score:</span>
-            <div className="flex gap-1">
+            <span className="text-sm font-semibold text-zinc-500 dark:text-zinc-400">Confidence Score:</span>
+            <div className="flex gap-1" role="img" aria-label={`Confidence ${report.confidence} of 5`}>
               {[1, 2, 3, 4, 5].map((level) => (
                 <span
                   key={level}
+                  aria-hidden="true"
                   className={`text-lg ${
-                    level <= report.confidence ? "text-yellow-400" : "text-zinc-700"
+                    level <= report.confidence ? "text-yellow-400" : "text-zinc-300 dark:text-zinc-700"
                   }`}
                 >
                   ★
                 </span>
               ))}
             </div>
-            <span className="text-sm text-zinc-400">({report.confidence}/5)</span>
+            <span className="text-sm text-zinc-500 dark:text-zinc-400">({report.confidence}/5)</span>
           </div>
         </div>
       </div>

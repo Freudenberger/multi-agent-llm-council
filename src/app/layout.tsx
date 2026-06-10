@@ -23,6 +23,13 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Applies the persisted theme before first paint to avoid a flash of the wrong
+ * theme (FOUC). Runs synchronously in <head>: reads `theme` from localStorage,
+ * defaults to dark when unset, and toggles the `.dark` class on <html>.
+ */
+const themeInitScript = `(function(){try{var t=localStorage.getItem("theme");document.documentElement.classList.toggle("dark",t!=="light");}catch(e){document.documentElement.classList.add("dark");}})();`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,8 +38,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="min-h-full flex flex-col">
         <AuthProvider>{children}</AuthProvider>
       </body>

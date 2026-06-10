@@ -106,6 +106,44 @@ describe("logger", () => {
       expect(logger.getLevel()).toBe("info");
     });
   });
+
+  describe("child (run-id correlation)", () => {
+    it("should tag every line with the bound context", () => {
+      process.env.LOG_LEVEL = "info";
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      const log = logger.child({ runId: "council-123" });
+      log.info("step one");
+      log.info("step two", { durationMs: 5 });
+
+      const first = logSpy.mock.calls[0][0] as string;
+      const second = logSpy.mock.calls[1][0] as string;
+      expect(first).toContain('"runId":"council-123"');
+      expect(second).toContain('"runId":"council-123"');
+      expect(second).toContain('"durationMs":5');
+    });
+
+    it("should let per-call data override the bound context", () => {
+      process.env.LOG_LEVEL = "info";
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      logger.child({ runId: "a" }).info("override", { runId: "b" });
+
+      const call = logSpy.mock.calls[0][0] as string;
+      expect(call).toContain('"runId":"b"');
+    });
+
+    it("should merge parent and child context when nested", () => {
+      process.env.LOG_LEVEL = "info";
+      const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      logger.child({ runId: "r1" }).child({ userId: "u1" }).info("nested");
+
+      const call = logSpy.mock.calls[0][0] as string;
+      expect(call).toContain('"runId":"r1"');
+      expect(call).toContain('"userId":"u1"');
+    });
+  });
 });
 
 describe("timed", () => {

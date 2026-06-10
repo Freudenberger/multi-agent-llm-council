@@ -113,6 +113,7 @@ async function withRetry<T>(
   shouldRetry: (result: T) => boolean,
   maxRetries: number,
   baseDelayMs: number,
+  logContext?: Record<string, unknown>,
 ): Promise<{ result: T; attempts: number }> {
   let attempts = 0;
   let result: T;
@@ -126,7 +127,10 @@ async function withRetry<T>(
     }
 
     const backoffMs = baseDelayMs * Math.pow(2, attempts - 1);
-    logger.info(`${label} retry ${attempts}/${maxRetries}`, { backoffMs });
+    logger.info(`${label} retry ${attempts}/${maxRetries}`, {
+      ...logContext,
+      backoffMs,
+    });
     await delay(backoffMs);
   }
 
@@ -383,6 +387,7 @@ async function runJudge(
       isReportEmpty(parseJudgeReport(r.result.content)),
     MAX_JUDGE_RETRIES,
     JUDGE_RETRY_BASE_DELAY_MS,
+    { runId },
   );
 
   const judgeResponse = result.result;
@@ -466,7 +471,7 @@ function buildFallbackReport(
 export async function runCouncil(
   input: RunCouncilInput,
 ): Promise<RunCouncilResult> {
-  const runId = generateId();
+  const runId = input.runId ?? generateId();
   const overallStart = performance.now();
 
   logger.info("Council run started", {

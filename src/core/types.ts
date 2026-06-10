@@ -86,6 +86,12 @@ export type RunCouncilInput = {
   mode: CouncilModeId;
   /** Optional per-agent overrides keyed by agent id. */
   customAgents?: Record<string, CustomAgent>;
+  /**
+   * Optional caller-supplied run id used to correlate logs across the whole
+   * request (e.g. the API route generates one and passes it in). When omitted,
+   * runCouncil generates its own. The value also becomes the result id.
+   */
+  runId?: string;
 };
 
 export type RunCouncilResult = {
