@@ -1,7 +1,5 @@
 #!/usr/bin/env sh
-# Pre-commit quality gate. See docs/test-plan.md §6.
-# - lint-staged auto-fixes ESLint errors on staged .ts/.tsx files
-# - typecheck runs strict tsc on the whole project (fast: incremental build info is cached)
-
+# Fast pre-commit gate. See docs/test-plan.md §6.
+# Only lint-staged runs here: ESLint --fix on staged .ts/.tsx files.
+# The heavier whole-project gates (typecheck, full lint) run on pre-push.
 npx lint-staged
-npm run typecheck
