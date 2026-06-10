@@ -94,6 +94,19 @@ export const councilModes: Record<CouncilModeId, CouncilMode> = {
       "final-summarizer",
     ),
   },
+  swot: {
+    id: "swot",
+    name: "SWOT Council",
+    description:
+      "Analyzes a subject across the four SWOT quadrants — strengths, weaknesses, opportunities, threats — then synthesizes a strategic recommendation.",
+    agents: buildAgents(
+      "strengths-analyst",
+      "weaknesses-analyst",
+      "opportunities-analyst",
+      "threats-analyst",
+      "swot-strategist",
+    ),
+  },
 };
 
 export function getMode(modeId: CouncilModeId): CouncilMode {

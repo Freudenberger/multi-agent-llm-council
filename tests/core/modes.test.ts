@@ -5,15 +5,16 @@ import type { CouncilModeId } from "@/core/types";
 
 describe("modes", () => {
   describe("councilModes registry", () => {
-    it("should contain all 6 modes", () => {
+    it("should contain all 7 modes", () => {
       const modeIds = Object.keys(councilModes) as CouncilModeId[];
-      expect(modeIds).toHaveLength(6);
+      expect(modeIds).toHaveLength(7);
       expect(modeIds).toContain("decision");
       expect(modeIds).toContain("idea");
       expect(modeIds).toContain("criticalReview");
       expect(modeIds).toContain("learning");
       expect(modeIds).toContain("technical");
       expect(modeIds).toContain("answer");
+      expect(modeIds).toContain("swot");
     });
 
     it("should have required fields for each mode", () => {
@@ -67,6 +68,7 @@ describe("modes", () => {
         "learning",
         "technical",
         "answer",
+        "swot",
       ];
       for (const id of ids) {
         const mode = getMode(id);
@@ -82,8 +84,8 @@ describe("modes", () => {
   });
 
   describe("listModes", () => {
-    it("should return all 6 modes", () => {
-      expect(listModes()).toHaveLength(6);
+    it("should return all 7 modes", () => {
+      expect(listModes()).toHaveLength(7);
     });
 
     it("should return modes with the same IDs as the registry", () => {
@@ -137,6 +139,20 @@ describe("modes", () => {
       expect(names).toContain("Contextualizer");
       expect(names).toContain("Synthesizer");
       expect(names).toContain("Final Summarizer");
+    });
+
+    it("swot mode should have the four quadrants plus a strategist judge", () => {
+      const mode = getMode("swot");
+      const names = mode.agents.map((a) => a.name);
+      expect(names).toContain("Strengths Analyst");
+      expect(names).toContain("Weaknesses Analyst");
+      expect(names).toContain("Opportunities Analyst");
+      expect(names).toContain("Threats Analyst");
+      expect(names).toContain("SWOT Strategist");
+
+      const judge = getFinalJudge(mode);
+      expect(judge!.name).toBe("SWOT Strategist");
+      expect(getSpecialists(mode)).toHaveLength(4);
     });
   });
 });

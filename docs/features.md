@@ -96,3 +96,15 @@ Logged-in users can save, revisit, and export their council analyses. Unauthenti
 - Backend-agnostic via `StorageProvider` interface: local JSON files (default) or Supabase PostgreSQL
 - Switch via `DB_PROVIDER` environment variable
 - All storage operations require authentication; unauthenticated requests are never persisted
+
+### 7. SWOT Council Mode
+
+A strategic-analysis council mode that evaluates a subject across the four classic SWOT quadrants, then synthesizes them into an actionable strategy.
+
+- **Strengths Analyst** — internal strengths and advantages
+- **Weaknesses Analyst** — internal weaknesses and limitations
+- **Opportunities Analyst** — external opportunities and favorable trends
+- **Threats Analyst** — external threats and risks
+- **SWOT Strategist** (final judge) — cross-links the quadrants (strengths→opportunities, weaknesses↔threats) into a recommendation, trade-offs, and next steps
+
+Best for evaluating a business, product, project, or plan strategically and mapping competitive position before committing.

@@ -33,6 +33,7 @@ const requestSchema = z.object({
     "learning",
     "technical",
     "answer",
+    "swot",
   ]),
   customAgents: z.record(z.string(), customAgentSchema).optional(),
 });

@@ -133,6 +133,24 @@ const MODES: {
       "Fact-checking and balanced analysis",
     ],
   },
+  {
+    id: "swot",
+    name: "SWOT",
+    fullName: "SWOT Council",
+    description: "Analyze strengths, weaknesses, opportunities, and threats",
+    agents: [
+      { name: "Strengths Analyst", role: "Identifies internal strengths and advantages" },
+      { name: "Weaknesses Analyst", role: "Identifies internal weaknesses and limitations" },
+      { name: "Opportunities Analyst", role: "Identifies external opportunities and trends" },
+      { name: "Threats Analyst", role: "Identifies external threats and risks" },
+      { name: "SWOT Strategist", role: "Synthesizes the quadrants into a strategy" },
+    ],
+    bestFor: [
+      "Evaluating a business, product, or project strategically",
+      "Assessing a plan before committing to it",
+      "Mapping competitive position and risks",
+    ],
+  },
 ];
 
 export default function Home() {
