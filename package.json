@@ -16,7 +16,14 @@
     "council": "tsx src/cli/index.ts",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix"
+    ],
+    "*.{js,jsx,json,md,yml,yaml}": []
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.0",
@@ -35,6 +42,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
     "typescript": "^5",

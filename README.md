@@ -54,7 +54,34 @@ Final Report
 - **CLI support** — run councils from the terminal with the same core engine
 - **Graceful degradation** — continues working even if some agents fail
 
-## Quick Start
+## Reviewer Quick Start
+
+Want to evaluate the project in five minutes, without an API key? This path works on a fresh clone:
+
+```bash
+git clone https://github.com/Freudenberger/multi-agent-llm-council.git
+cd multi-agent-llm-council
+npm install
+cp .env.example .env.local      # LLM_PROVIDER=mock is the default — no key required
+npm run dev                     # open http://localhost:3000
+```
+
+In the UI: type a question → pick a mode → click **Run Council Analysis**. The mock provider returns deterministic responses so the full Stage 1 → Stage 2 → Stage 3 flow runs end-to-end. No external calls are made.
+
+You can also exercise the same engine from the terminal:
+
+```bash
+npm run council -- --mode decision "Should I learn Rust or Go?"
+```
+
+To run the test suites:
+
+```bash
+npm test                                  # Vitest (unit + integration)
+cd tests/e2e && npm install && npx playwright test   # Playwright E2E (one-time install)
+```
+
+## Quick Start (with real LLM)
 
 ### Prerequisites
 
@@ -64,10 +91,13 @@ Final Report
 ### Installation
 
 ```bash
-git clone https://github.com/your-org/llm-council.git
-cd llm-council
+git clone https://github.com/Freudenberger/multi-agent-llm-council.git
+cd multi-agent-llm-council
 npm install
-cp .env.example .env.local   # add your OPENROUTER_API_KEY
+cp .env.example .env.local
+# Edit .env.local:
+#   LLM_PROVIDER=openrouter
+#   OPENROUTER_API_KEY=sk-or-...
 ```
 
 ### Run the Web App
