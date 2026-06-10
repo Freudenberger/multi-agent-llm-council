@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx playwright *)"
+      "Bash(npx playwright *)",
+      "Bash(curl -s -m 10 http://localhost:3000/)",
+      "Bash(tr '\\\\\\\\' '\\\\n')",
+      "Bash(npm install *)",
+      "Bash(npm run *)"
     ]
   }
 }
