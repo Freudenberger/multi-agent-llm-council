@@ -44,3 +44,6 @@ data/*.*
 data/**/*.*
 !data/.gitkeep
 .next-e2e
+
+# raw council transcripts (COUNCIL_RAW_LOG)
+/logs

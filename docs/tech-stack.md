@@ -112,7 +112,7 @@ These are extracted from [AGENTS.md](../AGENTS.md) and should be honoured by bot
 - **Module boundaries:** UI ↔ API route ↔ Council Core ↔ Provider. Core never imports from UI.
 - **Don't-touch zones:** [src/core/runCouncil.ts](../src/core/runCouncil.ts), [src/providers/openRouterProvider.ts](../src/providers/openRouterProvider.ts), [src/core/errors.ts](../src/core/errors.ts) — edit with extreme care.
 - **Error taxonomy:** `ValidationError`, `ModeNotFoundError`, `ProviderRetryError`, `ProviderTimeoutError`. Each maps to a specific HTTP status.
-- **Logging:** `logger.debug/info/error`. `LOG_LEVEL` env var controls verbosity.
+- **Logging:** `logger.debug/info/error`. `LOG_LEVEL` env var controls verbosity. For full raw prompt/response capture (debugging/auditing), enable `COUNCIL_RAW_LOG` — see `src/core/rawTranscript.ts`.
 
 ## 5. Environment Variables
 
@@ -122,6 +122,9 @@ These are extracted from [AGENTS.md](../AGENTS.md) and should be honoured by bot
 | `OPENROUTER_API_KEY`     | —                        | Required when `LLM_PROVIDER=openrouter`       |
 | `OPENROUTER_MODEL`       | `openrouter/free`        | Default model when none specified per-agent   |
 | `LOG_LEVEL`              | `info`                   | `debug`, `info`, `error`                      |
+| `COUNCIL_RAW_LOG`        | `false`                  | When truthy, write full raw prompt/response per model call to disk |
+| `COUNCIL_RAW_LOG_DIR`    | `./logs/council`         | Directory for raw transcript files            |
+| `COUNCIL_RAW_LOG_FORMAT` | `jsonl`                  | `jsonl` (one JSON per line) or `text`         |
 | `LLM_MAX_RETRIES`        | `3`                      | Max retry attempts                            |
 | `LLM_RETRY_BASE_DELAY`   | `1000`                   | Base backoff delay (ms)                       |
 | `LLM_REQUEST_TIMEOUT`    | `60000`                  | Per-request timeout (ms)                      |

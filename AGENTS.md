@@ -113,6 +113,9 @@ These files contain critical orchestration logic — modify with extreme care:
 | `OPENROUTER_API_KEY`   | —                       | Required for OpenRouter  |
 | `OPENROUTER_MODEL`     | `openrouter/free`       | Default model            |
 | `LOG_LEVEL`            | `info`                  | debug, info, error       |
+| `COUNCIL_RAW_LOG`      | `false`                 | Write full raw prompt/response per model call to disk |
+| `COUNCIL_RAW_LOG_DIR`  | `./logs/council`        | Raw transcript directory |
+| `COUNCIL_RAW_LOG_FORMAT` | `jsonl`               | `jsonl` or `text`        |
 | `LLM_MAX_RETRIES`      | `3`                     | Max retry attempts       |
 | `LLM_RETRY_BASE_DELAY` | `1000`                  | Base backoff delay (ms)  |
 | `LLM_REQUEST_TIMEOUT`  | `60000`                 | Per-request timeout (ms) |

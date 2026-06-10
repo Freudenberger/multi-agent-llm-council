@@ -8,6 +8,7 @@ import type {
 import { getSpecialists, getFinalJudge } from "./types";
 import { ModeNotFoundError, ValidationError } from "./errors";
 import { logger, timed } from "./logger";
+import { logRawExchange, logRawEvent } from "./rawTranscript";
 import { getMode } from "../modes";
 import { createProvider } from "../providers";
 import {
@@ -237,11 +238,14 @@ async function runAgent(
     // Use per-agent model if specified, otherwise fall back to shared provider
     const agentProvider = model ? createProvider(model) : provider;
 
+    const temperature = 0.7;
+    const maxTokens = agent.isFinalJudge ? 16_384 : 2048;
+
     const result = await agentProvider.generate({
       systemPrompt,
       userMessage,
-      temperature: 0.7,
-      maxTokens: agent.isFinalJudge ? 16_384 : 2048,
+      temperature,
+      maxTokens,
     });
 
     const agentMs = Math.round(performance.now() - agentStart);
@@ -252,6 +256,21 @@ async function runAgent(
       durationMs: agentMs,
       responseLength: result.content.length,
       isFinalJudge: agent.isFinalJudge ?? false,
+    });
+
+    // Raw transcript (opt-in via COUNCIL_RAW_LOG) — full untruncated I/O.
+    logRawExchange({
+      runId,
+      agentId: agent.id,
+      agentName: agent.name,
+      role: agent.isFinalJudge ? "judge" : "specialist",
+      model: result.model,
+      systemPrompt,
+      userMessage,
+      temperature,
+      maxTokens,
+      response: result.content,
+      durationMs: agentMs,
     });
 
     return {
@@ -271,6 +290,21 @@ async function runAgent(
       error: errorMessage,
       isFinalJudge: agent.isFinalJudge ?? false,
     });
+
+    // Raw transcript (opt-in via COUNCIL_RAW_LOG) — record the failed call too.
+    logRawExchange({
+      runId,
+      agentId: agent.id,
+      agentName: agent.name,
+      role: agent.isFinalJudge ? "judge" : "specialist",
+      model: model ?? "default",
+      systemPrompt,
+      userMessage,
+      response: null,
+      error: errorMessage,
+      durationMs: agentMs,
+    });
+
     return {
       agentId: agent.id,
       agentName: agent.name,
@@ -359,18 +393,42 @@ async function runJudge(
     successfulSpecialists.some((sr) => sr.agentId === a.id),
   );
   const systemPrompt = buildJudgeSystemPrompt(input.mode, mode.name);
+  const contributors = successfulSpecialists.map((sr) => {
+    const agentDef = successfulAgents.find((a) => a.id === sr.agentId);
+    return {
+      agentId: sr.agentId,
+      agentName: sr.agentName,
+      role: agentDef?.role ?? "Specialist",
+      content: sr.content,
+    };
+  });
   const userMessage = buildJudgeUserMessage(
     input.mode,
     input.input,
-    successfulSpecialists.map((sr) => {
-      const agentDef = successfulAgents.find((a) => a.id === sr.agentId);
-      return {
-        agentName: sr.agentName,
-        role: agentDef?.role ?? "Specialist",
-        content: sr.content,
-      };
-    }),
+    contributors.map(({ agentName, role, content }) => ({
+      agentName,
+      role,
+      content,
+    })),
   );
+
+  // Raw transcript (opt-in via COUNCIL_RAW_LOG) — the exact request the judge
+  // receives, plus the de-anonymized mapping (the prompt itself labels
+  // specialists as "Response A/B/C", so record who is who here).
+  logRawEvent(runId, "judge_request", {
+    judgeId: finalJudge.id,
+    judgeName: finalJudge.name,
+    model: finalJudge.model ?? "default",
+    contributors: contributors.map((c, index) => ({
+      order: index,
+      agentId: c.agentId,
+      agentName: c.agentName,
+      role: c.role,
+      contentLength: c.content.length,
+    })),
+    systemPrompt,
+    userMessage,
+  });
 
   const { result, attempts } = await withRetry(
     "Final judge",
@@ -503,6 +561,19 @@ export async function runCouncil(
     judgeName: getFinalJudge(mode)?.name ?? "none",
   });
 
+  // Raw transcript (opt-in via COUNCIL_RAW_LOG) — full run context up front.
+  logRawEvent(runId, "run_started", {
+    mode: mode.id,
+    modeName: mode.name,
+    input: input.input,
+    specialists: getSpecialists(mode).map((a) => ({
+      id: a.id,
+      name: a.name,
+      model: a.model ?? "default",
+    })),
+    judge: getFinalJudge(mode)?.name ?? null,
+  });
+
   const provider = createProvider();
 
   // Phase 1
@@ -511,6 +582,19 @@ export async function runCouncil(
     successful: successfulSpecialists,
     durationMs: specialistDurationMs,
   } = await runSpecialists(mode, input, runId, provider);
+
+  // Raw transcript (opt-in via COUNCIL_RAW_LOG) — every specialist's full
+  // response and confidence after Phase 1 completes.
+  logRawEvent(runId, "specialists_completed", {
+    durationMs: specialistDurationMs,
+    responses: specialistResponses.map((r) => ({
+      agentId: r.agentId,
+      agentName: r.agentName,
+      confidence: r.confidence,
+      failed: r.content.startsWith("[Error:"),
+      content: r.content,
+    })),
+  });
 
   // Phase 2
   const {
@@ -546,6 +630,17 @@ export async function runCouncil(
       !!judgeResponse &&
       !judgeResponse.content.startsWith("[Error:"),
     confidence: finalReport.confidence,
+  });
+
+  // Raw transcript (opt-in via COUNCIL_RAW_LOG) — the judge's raw output and
+  // the parsed final report that closes out the run.
+  logRawEvent(runId, "run_completed", {
+    durationMs: overallDurationMs,
+    specialistDurationMs,
+    judgeDurationMs,
+    judgeRan: canRunJudge,
+    judgeResponse: judgeResponse?.content ?? null,
+    finalReport,
   });
 
   return {
