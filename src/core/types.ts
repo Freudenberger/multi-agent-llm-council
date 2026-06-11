@@ -88,12 +88,51 @@ export type RunCouncilInput = {
   /** Optional per-agent overrides keyed by agent id. */
   customAgents?: Record<string, CustomAgent>;
   /**
+   * Optional user-level model allow-list. Every agent that has no explicit
+   * `model` (neither from its template nor a customAgents override) is assigned
+   * a model picked at random from this list. Sourced from the user's preferred
+   * models. When empty/omitted, those agents use the provider default.
+   */
+  fallbackModels?: string[];
+  /**
    * Optional caller-supplied run id used to correlate logs across the whole
    * request (e.g. the API route generates one and passes it in). When omitted,
    * runCouncil generates its own. The value also becomes the result id.
    */
   runId?: string;
+  /**
+   * Optional callback invoked as the run progresses (run start, phase changes,
+   * per-agent start/finish). Used to stream live status to the client.
+   */
+  onProgress?: (event: CouncilProgressEvent) => void;
+  /**
+   * Optional abort signal. When it fires, in-flight provider calls are aborted
+   * and the run stops at the next phase boundary, throwing `CouncilAbortedError`.
+   */
+  signal?: AbortSignal;
 };
+
+/** Lightweight description of an agent, used in progress events. */
+export type CouncilAgentMeta = {
+  id: string;
+  name: string;
+  role: string;
+  isFinalJudge: boolean;
+};
+
+/**
+ * Progress events emitted by `runCouncil` via `onProgress`. The API route
+ * serializes these to the client so the UI can show live per-agent status.
+ */
+export type CouncilProgressEvent =
+  | {
+      type: "run_started";
+      specialists: CouncilAgentMeta[];
+      judge: CouncilAgentMeta | null;
+    }
+  | { type: "phase_started"; phase: "specialists" | "judge" }
+  | { type: "agent_started"; agentId: string }
+  | { type: "agent_completed"; agentId: string; durationMs: number; ok: boolean };
 
 export type RunCouncilResult = {
   id: string;

@@ -125,10 +125,11 @@ These files contain critical orchestration logic — modify with extreme care:
 
 1. **Modular monolith** — single deployable app, not separate frontend/backend services
 2. **Shared core** — `src/core/` and `src/providers/` used by both web API and CLI
-3. **Per-agent model selection** — each agent can use a different OpenRouter model
+3. **Per-agent model selection** — each agent can use a different OpenRouter model. A user-level allow-list (`User.preferredModels`, passed to `runCouncil` as `fallbackModels`) randomly assigns a model to any agent without an explicit one; explicit per-agent models always take precedence.
 4. **Judge retry** — final judge retries up to 2 times on empty/error responses
 5. **Graceful degradation** — if agents fail, fallback report generated from successful responses
 6. **Anonymized peer review** — Stage 2 labels responses as "Response A, B, C" to prevent bias
+7. **Streaming + cancellation** — `POST /api/council` streams NDJSON progress events; `runCouncil` takes `onProgress` (live per-agent status) and an `AbortSignal` (threaded into provider `fetch`) so a run can be cancelled and actually stops in-flight. Cancellation surfaces as `CouncilAbortedError` (never retried).
 
 ## Adding a New Council Mode
 

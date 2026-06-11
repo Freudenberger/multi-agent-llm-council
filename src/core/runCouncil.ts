@@ -1,12 +1,17 @@
 import type {
   CouncilAgent,
+  CouncilAgentMeta,
   AgentResponse,
   FinalReport,
   RunCouncilInput,
   RunCouncilResult,
 } from "./types";
 import { getSpecialists, getFinalJudge } from "./types";
-import { ModeNotFoundError, ValidationError } from "./errors";
+import {
+  ModeNotFoundError,
+  ValidationError,
+  CouncilAbortedError,
+} from "./errors";
 import { logger, timed } from "./logger";
 import { logRawExchange, logRawEvent } from "./rawTranscript";
 import { getMode } from "../modes";
@@ -99,8 +104,48 @@ function normalizeJudges(
   return mode;
 }
 
+function randomPick<T>(items: T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+/**
+ * Assigns a model to every agent that has no explicit `model` by picking one
+ * at random from the user's `fallbackModels` list. Each agent is picked
+ * independently, so a run can spread agents across the selected models.
+ * Agents that already specify a model (from their template or a customAgents
+ * override) keep it — fallbacks only fill the gaps. When the list is empty the
+ * mode is returned unchanged and those agents fall back to the provider default.
+ *
+ * `pick` is injectable so the random selection can be made deterministic in tests.
+ */
+export function applyFallbackModels(
+  mode: ReturnType<typeof getMode>,
+  fallbackModels: string[] | undefined,
+  pick: (models: string[]) => string = randomPick,
+): ReturnType<typeof getMode> {
+  if (!fallbackModels || fallbackModels.length === 0) return mode;
+  const agents = mode.agents.map((agent) =>
+    agent.model ? agent : { ...agent, model: pick(fallbackModels) },
+  );
+  return { ...mode, agents };
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Throws CouncilAbortedError if the run's signal has fired. */
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new CouncilAbortedError();
+}
+
+function toAgentMeta(agent: CouncilAgent): CouncilAgentMeta {
+  return {
+    id: agent.id,
+    name: agent.name,
+    role: agent.role,
+    isFinalJudge: agent.isFinalJudge ?? false,
+  };
 }
 
 /**
@@ -225,8 +270,11 @@ async function runAgent(
   systemPrompt: string,
   userMessage: string,
   model?: string,
+  onProgress?: RunCouncilInput["onProgress"],
+  signal?: AbortSignal,
 ): Promise<AgentResponse> {
   const agentStart = performance.now();
+  onProgress?.({ type: "agent_started", agentId: agent.id });
   try {
     logger.debug(`Agent started: ${agent.name}`, {
       runId,
@@ -246,6 +294,7 @@ async function runAgent(
       userMessage,
       temperature,
       maxTokens,
+      signal,
     });
 
     const agentMs = Math.round(performance.now() - agentStart);
@@ -273,6 +322,13 @@ async function runAgent(
       durationMs: agentMs,
     });
 
+    onProgress?.({
+      type: "agent_completed",
+      agentId: agent.id,
+      durationMs: agentMs,
+      ok: true,
+    });
+
     return {
       agentId: agent.id,
       agentName: agent.name,
@@ -283,6 +339,13 @@ async function runAgent(
     const agentMs = Math.round(performance.now() - agentStart);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
+
+    onProgress?.({
+      type: "agent_completed",
+      agentId: agent.id,
+      durationMs: agentMs,
+      ok: false,
+    });
     logger.error(`Agent failed: ${agent.name}`, {
       runId,
       agentId: agent.id,
@@ -341,6 +404,8 @@ async function runSpecialists(
             agent.systemPrompt,
             buildAgentUserMessage(input.mode, input.input, agent),
             agent.model,
+            input.onProgress,
+            input.signal,
           ),
         ),
       ),
@@ -430,12 +495,25 @@ async function runJudge(
     userMessage,
   });
 
+  // The judge is actually going to run — announce the synthesis phase.
+  input.onProgress?.({ type: "phase_started", phase: "judge" });
+
   const { result, attempts } = await withRetry(
     "Final judge",
     async () => {
       const { result, durationMs } = await timed(
         "Phase 2: Final judge",
-        () => runAgent(finalJudge, runId, provider, systemPrompt, userMessage, finalJudge.model),
+        () =>
+          runAgent(
+            finalJudge,
+            runId,
+            provider,
+            systemPrompt,
+            userMessage,
+            finalJudge.model,
+            input.onProgress,
+            input.signal,
+          ),
         { runId, phase: "final-judge" },
       );
       return { result, durationMs };
@@ -554,6 +632,9 @@ export async function runCouncil(
   // Normalize judge configuration after customizations
   mode = normalizeJudges(mode, runId);
 
+  // Fill any agent without an explicit model by random pick from the user's list
+  mode = applyFallbackModels(mode, input.fallbackModels);
+
   logger.info("Council mode loaded", {
     runId,
     mode: mode.id,
@@ -574,14 +655,26 @@ export async function runCouncil(
     judge: getFinalJudge(mode)?.name ?? null,
   });
 
+  // Announce the planned roster so the client can render every agent up front.
+  input.onProgress?.({
+    type: "run_started",
+    specialists: getSpecialists(mode).map(toAgentMeta),
+    judge: getFinalJudge(mode) ? toAgentMeta(getFinalJudge(mode)!) : null,
+  });
+
   const provider = createProvider();
 
   // Phase 1
+  throwIfAborted(input.signal);
+  input.onProgress?.({ type: "phase_started", phase: "specialists" });
   const {
     all: specialistResponses,
     successful: successfulSpecialists,
     durationMs: specialistDurationMs,
   } = await runSpecialists(mode, input, runId, provider);
+
+  // Stop here if the user cancelled while specialists were running.
+  throwIfAborted(input.signal);
 
   // Raw transcript (opt-in via COUNCIL_RAW_LOG) — every specialist's full
   // response and confidence after Phase 1 completes.

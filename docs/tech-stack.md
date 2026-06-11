@@ -75,7 +75,7 @@ The 10xDevs course defines four signals of an "agent-friendly" stack: **typed, c
   - **Local JSON files** — [src/storage/localStorage.ts](../src/storage/localStorage.ts) under `./data/conversations/` (default; great for local dev and demo).
   - **Supabase Postgres** — [src/storage/supabaseStorage.ts](../src/storage/supabaseStorage.ts) for hosted deployment.
 - Switch with `DB_PROVIDER=local|supabase`.
-- Hard cap: max 3 conversations per user (oldest auto-deleted) — keeps MVP scope tight.
+- Hard cap: max 5 conversations per user (oldest auto-deleted) — keeps MVP scope tight.
 
 ### 3.7 LLM Provider — OpenRouter + Mock
 

@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import type {
   CouncilModeId,
-  RunCouncilResult,
   AgentResponse,
   FinalReport,
-  CustomAgent,
 } from "@/core/types";
-import type { ConversationSummary } from "@/storage/types";
+import { useCouncil } from "./CouncilProvider";
+import type { AgentStatus, CouncilPhase } from "./CouncilProvider";
 import { Markdown, InlineMarkdown } from "./components/Markdown";
 import { AgentCustomizer } from "./components/AgentCustomizer";
 import { UserMenu } from "./components/UserMenu";
@@ -154,34 +153,33 @@ const MODES: {
 ];
 
 export default function Home() {
-  const [input, setInput] = useState("");
-  const [mode, setMode] = useState<CouncilModeId>("decision");
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<RunCouncilResult | null>(null);
-  const [error, setError] = useState<{
-    title: string;
-    message: string;
-    type: string;
-    retryable: boolean;
-  } | null>(null);
-  const [inputError, setInputError] = useState<string | null>(null);
+  // Council-run state lives in CouncilProvider (root layout) so it survives
+  // navigating away to /settings and back — see CouncilProvider.tsx.
+  const {
+    input,
+    setInput,
+    mode,
+    setMode,
+    loading,
+    result,
+    error,
+    inputError,
+    setInputError,
+    setCustomAgents,
+    agentStatuses,
+    phase,
+    runAnalysis,
+    cancelAnalysis,
+    loadConversation: handleLoadConversation,
+  } = useCouncil();
+
   const [copied, setCopied] = useState(false);
-  const [customAgents, setCustomAgents] = useState<Record<string, CustomAgent>>({});
   const [availableModels, setAvailableModels] = useState<{ id: string; name: string }[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
-  const [showCustomEditor, setShowCustomEditor] = useState(true);
-  const [history, setHistory] = useState<ConversationSummary[]>([]);
+  const [preferredModels, setPreferredModels] = useState<string[]>([]);
 
   const { data: session } = useSession();
-
-  // Load a saved conversation into the main view
-  const handleLoadConversation = useCallback((conversation: RunCouncilResult) => {
-    setResult(conversation);
-    setInput(conversation.userInput);
-    setMode(conversation.modeId);
-    setError(null);
-  }, []);
 
   // Fetch free models from OpenRouter on mount
   useEffect(() => {
@@ -208,82 +206,34 @@ export default function Home() {
     return () => { cancelled = true; };
   }, []);
 
-  // Load conversation history when user logs in
+  // Load the user's preferred models so the customizer dropdown can be
+  // restricted to them (and the default-for-all behaviour is reflected).
   useEffect(() => {
-    if (!session?.user?.id) return;
-    fetch("/api/conversations")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setHistory(data);
-      })
-      .catch(() => {});
-  }, [session?.user?.id]);
-
-  // Inline validation
-  const validateInput = useCallback((value: string): string | null => {
-    if (!value.trim()) return "Please enter a question or problem to analyze.";
-    if (value.trim().length < 3) return "Please enter at least 3 characters.";
-    if (value.length > 10000) return "Input is too long (max 10 000 characters).";
-    return null;
-  }, []);
-
-  const runAnalysis = useCallback(async () => {
-    // Client-side validation
-    const validationError = validateInput(input);
-    if (validationError) {
-      setInputError(validationError);
-      return;
-    }
-    setInputError(null);
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      const body: Record<string, unknown> = { input: input.trim(), mode };
-      if (Object.keys(customAgents).length > 0) {
-        body.customAgents = customAgents;
-      }
-      const response = await fetch("/api/council", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError({
-          title: data.error || "Error",
-          message: data.message || "Something went wrong.",
-          type: data.type || "unknown",
-          retryable: data.retryable ?? false,
-        });
+    let cancelled = false;
+    const loadPreferredModels = async () => {
+      if (!session?.user?.id) {
+        if (!cancelled) setPreferredModels([]);
         return;
       }
-
-      setResult(data);
-
-      // Refresh history (backend auto-saves when authenticated)
-      if (session?.user?.id) {
-        const historyRes = await fetch("/api/conversations");
-        if (historyRes.ok) {
-          setHistory(await historyRes.json());
-        }
+      try {
+        const res = await fetch("/api/user/settings");
+        const data: { preferredModels?: string[] } = await res.json();
+        if (!cancelled) setPreferredModels(data.preferredModels ?? []);
+      } catch {
+        if (!cancelled) setPreferredModels([]);
       }
-    } catch {
-      // Network or parse error
-      setError({
-        title: "Connection error",
-        message:
-          "Unable to reach the server. Please check your connection and try again.",
-        type: "network",
-        retryable: true,
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [input, mode, customAgents, validateInput, session]);
+    };
+    loadPreferredModels();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
+
+  // When the user has chosen preferred models, restrict the per-agent dropdown
+  // to that allow-list; otherwise expose every available model.
+  const customizerModels = useMemo(() => {
+    if (preferredModels.length === 0) return availableModels;
+    const allowed = new Set(preferredModels);
+    return availableModels.filter((m) => allowed.has(m.id));
+  }, [availableModels, preferredModels]);
 
   const copyResult = useCallback(() => {
     if (!result) return;
@@ -424,7 +374,7 @@ export default function Home() {
                 defaultAgents={getModeAgents(mode)}
                 allTemplates={getAllAgentTemplates()}
                 onChange={setCustomAgents}
-                availableModels={availableModels}
+                availableModels={customizerModels}
               />
 
               {/* Run Button */}
@@ -486,25 +436,22 @@ export default function Home() {
             </div>
           )}
 
-          {/* Loading State */}
+          {/* Loading State — live council/agent status */}
           {loading && (
-            <div role="status" aria-live="polite" className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden print:hidden">
-              <div className="p-8 bg-white dark:bg-zinc-900 flex flex-col items-center gap-4">
-                <div className="relative">
-                  <div aria-hidden="true" className="w-12 h-12 rounded-full border-4 border-zinc-200 dark:border-zinc-700 border-t-blue-500 animate-spin" />
-                </div>
-                <div className="text-center">
-                  <p className="text-zinc-800 dark:text-zinc-200 font-medium">Council in Session</p>
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                    Specialist agents are analyzing your input...
-                  </p>
-                </div>
-                <div aria-hidden="true" className="flex gap-2 mt-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-              </div>
+            <CouncilStatus
+              agentStatuses={agentStatuses}
+              phase={phase}
+              onCancel={cancelAnalysis}
+            />
+          )}
+
+          {/* Cancelled notice (after a cancel, once loading stops and no result) */}
+          {!loading && phase === "cancelled" && !result && (
+            <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 px-4 py-3 print:hidden">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 flex items-center gap-2">
+                <span aria-hidden="true">⏹</span>
+                Council session cancelled. Run again when you&apos;re ready.
+              </p>
             </div>
           )}
 
@@ -554,6 +501,143 @@ export default function Home() {
         Multi-Agent LLM Council - Supports analysis by showing multiple perspectives.
         Does not guarantee correctness. Created by <a href="https://github.com/Freudenberger" className="text-blue-500 hover:underline">Freudenberger</a>.
       </footer>
+    </div>
+  );
+}
+
+function CouncilStatus({
+  agentStatuses,
+  phase,
+  onCancel,
+}: {
+  agentStatuses: AgentStatus[];
+  phase: CouncilPhase;
+  onCancel: () => void;
+}) {
+  const specialists = agentStatuses.filter((a) => !a.isFinalJudge);
+  const judge = agentStatuses.find((a) => a.isFinalJudge) ?? null;
+  const doneCount = specialists.filter(
+    (a) => a.state === "done" || a.state === "error",
+  ).length;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 overflow-hidden print:hidden"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex items-center gap-3 min-w-0">
+          <div id="council-status-spinner" className="relative w-9 h-9 shrink-0" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={specialists.length > 0 ? Math.round((doneCount / specialists.length) * 100) : 0} aria-label={`Council progress: ${specialists.length > 0 ? `${doneCount} of ${specialists.length} specialists done` : "starting"}`}>
+            <svg className="w-9 h-9 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+              <circle cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-200 dark:text-zinc-700" />
+              <circle
+                cx="18" cy="18" r="15.5" fill="none" stroke="currentColor" strokeWidth="2.5"
+                strokeDasharray={`${specialists.length > 0 ? (doneCount / specialists.length) * 97.4 : 0} 97.4`}
+                strokeLinecap="round"
+                className="text-blue-500 transition-all duration-500 ease-out"
+              />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold tabular-nums text-zinc-700 dark:text-zinc-300">
+              {specialists.length > 0 ? `${doneCount}/${specialists.length}` : "…"}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+              Council in session
+            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+              {phase === "judge"
+                ? "Synthesizing the final report…"
+                : agentStatuses.length > 0
+                  ? `Specialists analyzing… ${doneCount}/${specialists.length} done`
+                  : "Starting…"}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-red-300 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+
+      {/* Agent list */}
+      {agentStatuses.length === 0 ? (
+        <div aria-hidden="true" className="flex gap-2 px-4 py-6 justify-center">
+          <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+          <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+          <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+        </div>
+      ) : (
+        <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+          {/* Phase 1: Specialists */}
+          <div className="px-4 py-2">
+            <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
+              Phase 1 · Specialists
+            </p>
+            <div className="space-y-1">
+              {specialists.map((a) => (
+                <AgentStatusRow key={a.id} agent={a} />
+              ))}
+            </div>
+          </div>
+
+          {/* Phase 2: Synthesis */}
+          {judge && (
+            <div className="px-4 py-2">
+              <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
+                Phase 2 · Synthesis
+              </p>
+              <AgentStatusRow agent={judge} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgentStatusRow({ agent }: { agent: AgentStatus }) {
+  const icon: Record<AgentStatus["state"], string> = {
+    pending: "○",
+    running: "⟳",
+    done: "✓",
+    error: "⚠",
+  };
+  const color: Record<AgentStatus["state"], string> = {
+    pending: "text-zinc-400 dark:text-zinc-600",
+    running: "text-blue-500 dark:text-blue-400",
+    done: "text-green-600 dark:text-green-400",
+    error: "text-amber-600 dark:text-amber-400",
+  };
+  const label: Record<AgentStatus["state"], string> = {
+    pending: "pending",
+    running: "running…",
+    done: "done",
+    error: "failed",
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span
+        aria-hidden="true"
+        className={`w-4 text-center shrink-0 ${color[agent.state]} ${agent.state === "running" ? "animate-spin inline-block" : ""}`}
+      >
+        {icon[agent.state]}
+      </span>
+      <span className="text-zinc-700 dark:text-zinc-300 truncate">{agent.name}</span>
+      <span className="text-zinc-400 dark:text-zinc-600 text-xs truncate hidden sm:inline">
+        · {agent.role}
+      </span>
+      <span className="ml-auto shrink-0 text-xs tabular-nums text-zinc-400 dark:text-zinc-500">
+        {agent.state === "done" && agent.durationMs != null
+          ? `${(agent.durationMs / 1000).toFixed(1)}s`
+          : label[agent.state]}
+      </span>
     </div>
   );
 }

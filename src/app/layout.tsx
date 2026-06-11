@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./AuthProvider";
+import { CouncilProvider } from "./CouncilProvider";
 
 
 const geistSans = Geist({
@@ -45,7 +46,9 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <CouncilProvider>{children}</CouncilProvider>
+        </AuthProvider>
       </body>
     </html>
   );

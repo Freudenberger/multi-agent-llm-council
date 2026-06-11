@@ -64,4 +64,17 @@ export const userStorage = {
     logger.info("User provider settings updated", { userId });
     return users[index];
   },
+
+  updatePreferredModels(userId: string, preferredModels: string[]): User | null {
+    const users = readUsers();
+    const index = users.findIndex((u) => u.id === userId);
+    if (index === -1) return null;
+    users[index] = { ...users[index], preferredModels };
+    writeUsers(users);
+    logger.info("User preferred models updated", {
+      userId,
+      count: preferredModels.length,
+    });
+    return users[index];
+  },
 };

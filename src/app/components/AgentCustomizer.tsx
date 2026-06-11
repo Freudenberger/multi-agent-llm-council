@@ -432,7 +432,7 @@ export function AgentCustomizer({ defaultAgents, allTemplates, onChange, availab
                             onChange={(e) => handleFieldChange(agent.id, "model", e.target.value)}
                             className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-zinc-200 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                           >
-                            <option value="">Default (openrouter/free)</option>
+                            <option value="">Auto (random from your preferred / openrouter/free)</option>
                             {availableModels.map((m) => (
                               <option key={m.id} value={m.id}>
                                 {m.name}

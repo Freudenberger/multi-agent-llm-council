@@ -28,7 +28,7 @@ export type StorageProvider = {
   list(userId: string): Promise<ConversationSummary[]>;
   /** Get a single conversation by ID. */
   get(id: string): Promise<StoredConversation | null>;
-  /** Save a new conversation. Enforces max 3 per user (deletes oldest). */
+  /** Save a new conversation. Enforces max conversations per user (deletes oldest). */
   save(conversation: StoredConversation): Promise<void>;
   /** Delete a conversation by ID. */
   delete(id: string): Promise<void>;

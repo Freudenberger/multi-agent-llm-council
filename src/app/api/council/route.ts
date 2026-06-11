@@ -6,9 +6,11 @@ import {
   ModeNotFoundError,
   ProviderRetryError,
   ProviderTimeoutError,
+  CouncilAbortedError,
 } from "@/core/errors";
 import { z } from "zod";
 import { auth } from "@/auth/config";
+import { userStorage } from "@/auth/userStorage";
 import { createStorage } from "@/storage";
 
 const customAgentSchema = z.object({
@@ -149,55 +151,113 @@ export async function POST(request: NextRequest) {
     inputLength: validation.data.input.length,
   });
 
-  // Run council
-  try {
-    const result = await runCouncil({
-      runId,
-      input: validation.data.input,
-      mode: validation.data.mode,
-      customAgents: validation.data.customAgents,
-    });
-
-    const durationMs = Math.round(performance.now() - start);
-    log.info("API request completed", {
-      mode: result.modeId,
-      durationMs,
-      agentCount: result.agentResponses.length,
-      confidence: result.finalReport.confidence,
-    });
-
-    // Save to storage only if user is authenticated
-    const session = await auth();
-    if (session?.user?.id) {
-      const storage = createStorage();
-      const title =
-        validation.data.input.substring(0, 60) +
-        (validation.data.input.length > 60 ? "..." : "");
-      await storage.save({
-        ...result,
-        userId: session.user.id,
-        title,
-      });
-      log.info("Conversation saved for user", {
-        userId: session.user.id,
-      });
-    }
-
-    return NextResponse.json(result);
-  } catch (error) {
-    const durationMs = Math.round(performance.now() - start);
-    const { status, body: errorBody } = errorResponse(error);
-
-    log.error("API request failed", {
-      durationMs,
-      status,
-      error: errorBody.error,
-      type: errorBody.type,
-      originalError: error instanceof Error ? error.message : String(error),
-    });
-
-    return NextResponse.json(errorBody, { status });
+  // Resolve the signed-in user once: their preferred models become the
+  // allow-list that agents without an explicit override are randomly assigned
+  // from, and we reuse the same session below to persist the conversation.
+  const session = await auth();
+  let fallbackModels: string[] | undefined;
+  if (session?.user?.id) {
+    const user = userStorage.findById(session.user.id);
+    fallbackModels = user?.preferredModels;
   }
+
+  // Run the council and stream progress + the final result as NDJSON.
+  // Each line is one JSON object tagged by `kind`:
+  //   { kind: "progress", event }  — live status (run/phase/agent events)
+  //   { kind: "result", result }   — the final RunCouncilResult
+  //   { kind: "error", error }     — a fatal error (same shape as the JSON API)
+  // The client aborting the request cancels the run via `ac`.
+  const encoder = new TextEncoder();
+  const ac = new AbortController();
+  const onClientAbort = () => ac.abort();
+  request.signal.addEventListener("abort", onClientAbort);
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (obj: unknown) => {
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+        } catch {
+          // Stream already closed/cancelled — drop the event.
+        }
+      };
+
+      try {
+        const result = await runCouncil({
+          runId,
+          input: validation.data.input,
+          mode: validation.data.mode,
+          customAgents: validation.data.customAgents,
+          fallbackModels,
+          signal: ac.signal,
+          onProgress: (event) => send({ kind: "progress", event }),
+        });
+
+        const durationMs = Math.round(performance.now() - start);
+        log.info("API request completed", {
+          mode: result.modeId,
+          durationMs,
+          agentCount: result.agentResponses.length,
+          confidence: result.finalReport.confidence,
+        });
+
+        // Save to storage only if user is authenticated
+        if (session?.user?.id) {
+          const storage = createStorage();
+          const title =
+            validation.data.input.substring(0, 60) +
+            (validation.data.input.length > 60 ? "..." : "");
+          await storage.save({
+            ...result,
+            userId: session.user.id,
+            title,
+          });
+          log.info("Conversation saved for user", {
+            userId: session.user.id,
+          });
+        }
+
+        send({ kind: "result", result });
+      } catch (error) {
+        const durationMs = Math.round(performance.now() - start);
+
+        if (error instanceof CouncilAbortedError || ac.signal.aborted) {
+          log.info("Council run cancelled", { runId, durationMs });
+          // The client has gone away; nothing to send.
+        } else {
+          const { status, body: errorBody } = errorResponse(error);
+          log.error("API request failed", {
+            durationMs,
+            status,
+            error: errorBody.error,
+            type: errorBody.type,
+            originalError:
+              error instanceof Error ? error.message : String(error),
+          });
+          send({ kind: "error", error: errorBody });
+        }
+      } finally {
+        request.signal.removeEventListener("abort", onClientAbort);
+        try {
+          controller.close();
+        } catch {
+          // Already closed.
+        }
+      }
+    },
+    cancel() {
+      // Reader cancelled (e.g. client disconnected) — stop the run.
+      ac.abort();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
 
 export async function GET() {

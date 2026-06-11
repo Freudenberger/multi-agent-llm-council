@@ -6,6 +6,7 @@ import type {
   ConversationSummary,
 } from "./types";
 import { logger } from "../core/logger";
+import { MAX_CONVERSATIONS_PER_USER } from "../config";
 
 /**
  * Local JSON file storage — default provider.
@@ -23,8 +24,6 @@ function ensureDir(): void {
 function filePath(id: string): string {
   return path.join(DATA_DIR, `${id}.json`);
 }
-
-const MAX_CONVERSATIONS_PER_USER = 3;
 
 export const localStorage: StorageProvider = {
   async list(userId: string): Promise<ConversationSummary[]> {
@@ -72,7 +71,7 @@ export const localStorage: StorageProvider = {
   async save(conversation: StoredConversation): Promise<void> {
     ensureDir();
 
-    // Enforce max 3 conversations per user: delete oldest if at limit
+    // Enforce max conversations per user: delete oldest if at limit
     const userConvs = await this.list(conversation.userId);
     if (userConvs.length >= MAX_CONVERSATIONS_PER_USER) {
       // Delete oldest (last in sorted list)

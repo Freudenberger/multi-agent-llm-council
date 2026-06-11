@@ -108,3 +108,40 @@ A strategic-analysis council mode that evaluates a subject across the four class
 - **SWOT Strategist** (final judge) — cross-links the quadrants (strengths→opportunities, weaknesses↔threats) into a recommendation, trade-offs, and next steps
 
 Best for evaluating a business, product, project, or plan strategically and mapping competitive position before committing.
+
+### 8. User Preferred Models
+
+Logged-in users can choose, once in Settings, which OpenRouter models their council should use — instead of setting a model per agent in every mode. The selection is an allow-list with no forced default.
+
+**Settings → Preferred Models tab:**
+- Multi-select picker over the free OpenRouter model list (with search) backed by `GET /api/models`
+- No "default" concept — the order doesn't matter; selecting one model runs everything on it, selecting several spreads agents across them
+- Selections persist on the user via `PUT /api/user/settings` (`preferredModels` field) and are returned by `GET /api/user/settings`
+
+**Effect on a council run:**
+- The council route loads the signed-in user and passes `preferredModels` into `runCouncil` as `fallbackModels`; `applyFallbackModels` assigns each agent without its own model a model picked **at random** from the list (independently per agent, per run) — explicit per-agent overrides always win
+- The Customize Agents per-agent dropdown is restricted to the user's preferred set when non-empty
+- Anonymous runs and users with no preferred models are unaffected (fall back to `OPENROUTER_MODEL` / `openrouter/free`)
+
+This lets a user constrain which models run without customizing each agent in each mode: one model to run everything on it, or a curated set to vary across.
+
+### 9. Live Council Status & Cancellation
+
+The council run streams its progress to the UI in real time, and the user can cancel a run while it is in flight.
+
+**Streaming API:**
+- `POST /api/council` returns an NDJSON stream (`application/x-ndjson`) instead of a single JSON blob. Each line is one tagged object: `{ kind: "progress", event }`, `{ kind: "result", result }`, or `{ kind: "error", error }`
+- `runCouncil` accepts an `onProgress` callback and emits `run_started` (the planned roster), `phase_started` (`specialists` → `judge`), `agent_started`, and `agent_completed` (with `durationMs` and `ok`) events
+- The final `result` payload is identical to the previous JSON response; conversations are still auto-saved for authenticated users before the result line is sent
+
+**Live status UI:**
+- Replaces the generic spinner with a per-agent panel: each agent shows pending → running → done/failed, grouped into Phase 1 · Specialists and Phase 2 · Synthesis, with elapsed time per finished agent
+- A header summary tracks "N/total done" and switches to "Synthesizing…" during the judge phase
+
+**Cancellation:**
+- A **Cancel** button aborts the in-flight request via an `AbortController`
+- `runCouncil` accepts an `AbortSignal`; the abort is threaded into the provider's `fetch` (combined with the timeout signal), so in-flight model calls are actually stopped — not just abandoned client-side
+- The server stops at the next phase boundary and throws `CouncilAbortedError` (never retried, not surfaced as an error); the UI shows a "session cancelled" notice
+- Cancellation works in demo mode too (the mock provider's simulated delay is abortable)
+
+Because the run state lives in `CouncilProvider` (feature: state survives navigation), a run keeps streaming and can still be cancelled after navigating to Settings and back.

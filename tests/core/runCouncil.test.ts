@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { runCouncil } from "@/core/runCouncil";
-import { ModeNotFoundError, ValidationError } from "@/core/errors";
+import { runCouncil, applyFallbackModels } from "@/core/runCouncil";
+import {
+  ModeNotFoundError,
+  ValidationError,
+  CouncilAbortedError,
+} from "@/core/errors";
+import { getMode } from "@/modes";
+import type { CouncilProgressEvent } from "@/core/types";
 
 describe("runCouncil", () => {
   // ─── Validation ──────────────────────────────────────────────────
@@ -182,6 +188,210 @@ describe("runCouncil", () => {
       (r) => r.agentId === "optimist",
     );
     expect(optimistResponse).toBeUndefined();
+  }, 30000);
+
+  // ─── User-level fallback models (preferred models) ───────────────
+
+  describe("applyFallbackModels", () => {
+    it("assigns each agent without a model a value from the list", () => {
+      const mode = getMode("decision");
+      const list = ["anthropic/owl-alpha", "openrouter/free"];
+      const result = applyFallbackModels(mode, list);
+      expect(result.agents.length).toBeGreaterThan(0);
+      for (const agent of result.agents) {
+        expect(list).toContain(agent.model);
+      }
+    });
+
+    it("assigns a single-model list to every agent (run everything on one model)", () => {
+      const mode = getMode("decision");
+      const result = applyFallbackModels(mode, ["anthropic/owl-alpha"]);
+      for (const agent of result.agents) {
+        expect(agent.model).toBe("anthropic/owl-alpha");
+      }
+    });
+
+    it("picks independently per agent (injected picker is called per gap)", () => {
+      const base = getMode("decision");
+      const list = ["model-a", "model-b"];
+      let i = 0;
+      // round-robin picker to make selection deterministic
+      const result = applyFallbackModels(base, list, () => list[i++ % list.length]);
+      expect(result.agents[0].model).toBe("model-a");
+      expect(result.agents[1].model).toBe("model-b");
+    });
+
+    it("does not override agents that already specify a model", () => {
+      const base = getMode("decision");
+      const mode = {
+        ...base,
+        agents: base.agents.map((a, i) =>
+          i === 0 ? { ...a, model: "explicit/model" } : a,
+        ),
+      };
+      const result = applyFallbackModels(mode, ["anthropic/owl-alpha"]);
+      expect(result.agents[0].model).toBe("explicit/model");
+      for (const agent of result.agents.slice(1)) {
+        expect(agent.model).toBe("anthropic/owl-alpha");
+      }
+    });
+
+    it("is a no-op when the list is empty or omitted", () => {
+      const mode = getMode("decision");
+      expect(applyFallbackModels(mode, [])).toEqual(mode);
+      const result = applyFallbackModels(mode, undefined);
+      expect(result).toEqual(mode);
+      for (const agent of result.agents) {
+        expect(agent.model).toBeUndefined();
+      }
+    });
+  });
+
+  // ─── Progress events & cancellation ──────────────────────────────
+
+  describe("progress + cancellation", () => {
+    it("emits run_started, phase, and per-agent progress events", async () => {
+      const events: CouncilProgressEvent[] = [];
+      await runCouncil({
+        input: "Should we ship the feature?",
+        mode: "decision",
+        onProgress: (e) => events.push(e),
+      });
+
+      const types = events.map((e) => e.type);
+      expect(types[0]).toBe("run_started");
+      expect(types).toContain("phase_started");
+      expect(types).toContain("agent_started");
+      expect(types).toContain("agent_completed");
+
+      // run_started lists the planned roster
+      const start = events.find((e) => e.type === "run_started");
+      expect(start && start.type === "run_started" && start.specialists.length).toBeGreaterThan(0);
+
+      // every started agent eventually completes
+      const started = events.filter((e) => e.type === "agent_started").length;
+      const completed = events.filter((e) => e.type === "agent_completed").length;
+      expect(completed).toBe(started);
+
+      // both phases are announced
+      const phases = events
+        .filter((e) => e.type === "phase_started")
+        .map((e) => (e.type === "phase_started" ? e.phase : ""));
+      expect(phases).toContain("specialists");
+      expect(phases).toContain("judge");
+    }, 30000);
+
+    it("rejects with CouncilAbortedError when the signal is already aborted", async () => {
+      const controller = new AbortController();
+      controller.abort();
+      await expect(
+        runCouncil({
+          input: "Cancel me before I start",
+          mode: "decision",
+          signal: controller.signal,
+        }),
+      ).rejects.toBeInstanceOf(CouncilAbortedError);
+    });
+
+    it("aborts an in-flight run and stops before the judge", async () => {
+      const controller = new AbortController();
+      const events: CouncilProgressEvent[] = [];
+      // Abort as soon as the first agent starts working.
+      const promise = runCouncil({
+        input: "Cancel me mid-run",
+        mode: "decision",
+        signal: controller.signal,
+        onProgress: (e) => {
+          if (e.type === "agent_started") controller.abort();
+        },
+      });
+
+      await expect(promise).rejects.toBeInstanceOf(CouncilAbortedError);
+      // The judge phase must never have started.
+      expect(
+        events.some((e) => e.type === "phase_started" && e.phase === "judge"),
+      ).toBe(false);
+    }, 30000);
+  });
+
+  // ─── Per-agent model selection ───────────────────────────────────
+
+  it("should accept per-agent model overrides", async () => {
+    const result = await runCouncil({
+      input: "Test with custom model",
+      mode: "decision",
+      customAgents: {
+        optimist: {
+          id: "optimist",
+          name: "Optimist",
+          role: "Positive",
+          systemPrompt: "Be positive",
+          model: "openrouter/free",
+        },
+      },
+    });
+
+    expect(result.modeId).toBe("decision");
+    const customAgent = result.agentResponses.find(
+      (r) => r.agentId === "optimist",
+    );
+    expect(customAgent).toBeDefined();
+    expect(customAgent!.content.length).toBeGreaterThan(0);
+  }, 30000);
+
+  it("should run with different models for different agents", async () => {
+    const result = await runCouncil({
+      input: "Test with mixed models",
+      mode: "decision",
+      customAgents: {
+        optimist: {
+          id: "optimist",
+          name: "Optimist",
+          role: "Positive",
+          systemPrompt: "Be positive",
+          model: "openrouter/free",
+        },
+        sceptic: {
+          id: "sceptic",
+          name: "Sceptic",
+          role: "Critical",
+          systemPrompt: "Be critical",
+          model: "openrouter/free",
+        },
+      },
+    });
+
+    expect(result.agentResponses.length).toBeGreaterThan(0);
+    // All agents should have responded
+    const optimist = result.agentResponses.find(
+      (r) => r.agentId === "optimist",
+    );
+    const sceptic = result.agentResponses.find((r) => r.agentId === "sceptic");
+    expect(optimist).toBeDefined();
+    expect(sceptic).toBeDefined();
+  }, 30000);
+
+  it("should run with model on some agents and default on others", async () => {
+    const result = await runCouncil({
+      input: "Test mixed model configuration",
+      mode: "idea",
+      customAgents: {
+        "creative-thinker": {
+          id: "creative-thinker",
+          name: "Creative Thinker",
+          role: "Creative",
+          systemPrompt: "Think creatively",
+          model: "openrouter/free",
+        },
+      },
+    });
+
+    expect(result.agentResponses.length).toBeGreaterThan(0);
+    const creativeThinker = result.agentResponses.find(
+      (r) => r.agentId === "creative-thinker",
+    );
+    expect(creativeThinker).toBeDefined();
+    expect(creativeThinker!.content.length).toBeGreaterThan(0);
   }, 30000);
 
   // ─── Report content ──────────────────────────────────────────────

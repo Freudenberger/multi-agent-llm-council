@@ -1,5 +1,6 @@
 import type { LLMProvider, GenerateInput, GenerateOutput } from "./types";
 import { logger } from "../core/logger";
+import { CouncilAbortedError } from "../core/errors";
 
 /**
  * Mock Provider — returns predefined responses without calling any external API.
@@ -178,9 +179,23 @@ export class MockProvider implements LLMProvider {
       maxTokens: input.maxTokens,
     });
 
-    // Simulate network delay
+    // Simulate network delay — abortable so cancellation works in demo/test mode
     const delayMs = 300 + Math.random() * 700;
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await new Promise<void>((resolve, reject) => {
+      if (input.signal?.aborted) {
+        reject(new CouncilAbortedError());
+        return;
+      }
+      const timer = setTimeout(resolve, delayMs);
+      input.signal?.addEventListener(
+        "abort",
+        () => {
+          clearTimeout(timer);
+          reject(new CouncilAbortedError());
+        },
+        { once: true },
+      );
+    });
 
     // Determine whether this is a final‑judge request or a specialist request.
     const systemLower = input.systemPrompt.toLowerCase();

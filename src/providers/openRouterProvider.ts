@@ -8,7 +8,11 @@ import type {
   DEFAULT_TIMEOUT_CONFIG,
 } from "./types";
 import { logger } from "../core/logger";
-import { ProviderRetryError, ProviderTimeoutError } from "../core/errors";
+import {
+  ProviderRetryError,
+  ProviderTimeoutError,
+  CouncilAbortedError,
+} from "../core/errors";
 
 /**
  * OpenRouter Provider — uses OpenRouter API for LLM calls.
@@ -75,9 +79,16 @@ export class OpenRouterProvider implements LLMProvider {
     url: string,
     options: RequestInit,
     timeoutMs: number,
+    externalSignal?: AbortSignal,
   ): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // Forward an external cancellation (e.g. user aborted the run) to this fetch.
+    const onExternalAbort = () => controller.abort();
+    if (externalSignal) {
+      if (externalSignal.aborted) controller.abort();
+      else externalSignal.addEventListener("abort", onExternalAbort);
+    }
 
     try {
       return await fetch(url, {
@@ -85,6 +96,10 @@ export class OpenRouterProvider implements LLMProvider {
         signal: controller.signal,
       });
     } catch (error: unknown) {
+      // External cancellation takes precedence over the timeout interpretation.
+      if (externalSignal?.aborted) {
+        throw new CouncilAbortedError();
+      }
       if (error instanceof Error && error.name === "AbortError") {
         throw new ProviderTimeoutError(
           `Request timed out after ${timeoutMs}ms`,
@@ -95,6 +110,7 @@ export class OpenRouterProvider implements LLMProvider {
       throw error;
     } finally {
       clearTimeout(timer);
+      externalSignal?.removeEventListener("abort", onExternalAbort);
     }
   }
 
@@ -144,6 +160,10 @@ export class OpenRouterProvider implements LLMProvider {
     let lastError: Error | undefined;
 
     for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
+      // Stop before (re)trying if the run was cancelled in the meantime.
+      if (input.signal?.aborted) {
+        throw new CouncilAbortedError();
+      }
       if (attempt > 0) {
         const backoffMs =
           this.retryConfig.baseDelayMs * Math.pow(2, attempt - 1);
@@ -162,6 +182,7 @@ export class OpenRouterProvider implements LLMProvider {
           this.apiUrl,
           { method: "POST", headers, body },
           this.timeoutConfig.requestTimeoutMs,
+          input.signal,
         );
 
         if (!response.ok) {
@@ -224,6 +245,11 @@ export class OpenRouterProvider implements LLMProvider {
           model: this.model,
         };
       } catch (error: unknown) {
+        // Cancellation — propagate immediately, never retry.
+        if (error instanceof CouncilAbortedError) {
+          throw error;
+        }
+
         // ProviderTimeoutError — retry if attempts remain
         if (error instanceof ProviderTimeoutError) {
           lastError = error;

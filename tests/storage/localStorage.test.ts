@@ -70,9 +70,9 @@ describe("localStorage", () => {
       expect(parsed.title).toBe("Title test-save-1");
     });
 
-    it("should enforce max 3 conversations per user", async () => {
-      // Save 3 conversations
-      for (let i = 1; i <= 3; i++) {
+    it("should enforce max 5 conversations per user", async () => {
+      // Save 5 conversations
+      for (let i = 1; i <= 5; i++) {
         const conv = makeConversation(`test-limit-${i}`, "user-limit", {
           createdAt: new Date(Date.now() + i * 1000).toISOString(),
         });
@@ -80,20 +80,20 @@ describe("localStorage", () => {
       }
 
       const list = await localStorage.list("user-limit");
-      expect(list).toHaveLength(3);
+      expect(list).toHaveLength(5);
 
-      // Save a 4th — should evict the oldest
-      const conv4 = makeConversation("test-limit-4", "user-limit", {
-        createdAt: new Date(Date.now() + 4000).toISOString(),
+      // Save a 6th — should evict the oldest
+      const conv6 = makeConversation("test-limit-6", "user-limit", {
+        createdAt: new Date(Date.now() + 6000).toISOString(),
       });
-      await localStorage.save(conv4);
+      await localStorage.save(conv6);
 
       const updated = await localStorage.list("user-limit");
-      expect(updated).toHaveLength(3);
+      expect(updated).toHaveLength(5);
       // Oldest (test-limit-1) should be gone
       expect(updated.find((c) => c.id === "test-limit-1")).toBeUndefined();
       // Newest should be present
-      expect(updated.find((c) => c.id === "test-limit-4")).toBeDefined();
+      expect(updated.find((c) => c.id === "test-limit-6")).toBeDefined();
     });
 
     it("should not affect other users' conversations when enforcing limit", async () => {
@@ -121,7 +121,7 @@ describe("localStorage", () => {
 
       const listA = await localStorage.list("user-a");
       const listB = await localStorage.list("user-b");
-      expect(listA).toHaveLength(3);
+      expect(listA).toHaveLength(5); // 3 original + 1 new + 1 evicted
       expect(listB).toHaveLength(3);
     });
   });

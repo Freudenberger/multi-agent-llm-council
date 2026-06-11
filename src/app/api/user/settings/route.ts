@@ -14,14 +14,24 @@ const AVAILABLE_PROVIDERS = [
   },
 ] as const;
 
-const settingsSchema = z.object({
-  providerSettings: z.record(
-    z.string(),
-    z.object({
-      apiKey: z.string().min(1, "API key cannot be empty").max(500),
-    }),
-  ),
-});
+const settingsSchema = z
+  .object({
+    providerSettings: z
+      .record(
+        z.string(),
+        z.object({
+          apiKey: z.string().min(1, "API key cannot be empty").max(500),
+        }),
+      )
+      .optional(),
+    /** Preferred model ids in priority order; index 0 is the default model. */
+    preferredModels: z.array(z.string().min(1).max(200)).max(50).optional(),
+  })
+  .refine(
+    (data) =>
+      data.providerSettings !== undefined || data.preferredModels !== undefined,
+    { message: "Provide providerSettings and/or preferredModels" },
+  );
 
 const testApiKeySchema = z.object({
   apiKey: z.string().min(1, "API key cannot be empty").max(500).optional(),
@@ -59,6 +69,7 @@ export async function GET() {
   return NextResponse.json({
     providers: AVAILABLE_PROVIDERS,
     settings: maskedSettings,
+    preferredModels: user.preferredModels ?? [],
   });
 }
 
@@ -95,30 +106,51 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  // Merge new settings with existing ones
-  const existingSettings = user.providerSettings ?? {};
-  const mergedSettings: ProviderSettings = { ...existingSettings };
-  for (const [providerId, setting] of Object.entries(
-    parsed.data.providerSettings,
-  )) {
-    mergedSettings[providerId] = setting as ProviderSetting;
-  }
+  // Merge provider settings (API keys) when supplied
+  if (parsed.data.providerSettings) {
+    const existingSettings = user.providerSettings ?? {};
+    const mergedSettings: ProviderSettings = { ...existingSettings };
+    for (const [providerId, setting] of Object.entries(
+      parsed.data.providerSettings,
+    )) {
+      mergedSettings[providerId] = setting as ProviderSetting;
+    }
 
-  const updated = userStorage.updateProviderSettings(
-    session.user.id,
-    mergedSettings,
-  );
-  if (!updated) {
-    return NextResponse.json(
-      { error: "Failed to update settings" },
-      { status: 500 },
+    const updated = userStorage.updateProviderSettings(
+      session.user.id,
+      mergedSettings,
     );
+    if (!updated) {
+      return NextResponse.json(
+        { error: "Failed to update settings" },
+        { status: 500 },
+      );
+    }
+
+    logger.info("Provider settings updated via API", {
+      userId: session.user.id,
+      providers: Object.keys(parsed.data.providerSettings),
+    });
   }
 
-  logger.info("Provider settings updated via API", {
-    userId: session.user.id,
-    providers: Object.keys(parsed.data.providerSettings),
-  });
+  // Persist preferred models when supplied (empty array clears them)
+  if (parsed.data.preferredModels) {
+    const updated = userStorage.updatePreferredModels(
+      session.user.id,
+      parsed.data.preferredModels,
+    );
+    if (!updated) {
+      return NextResponse.json(
+        { error: "Failed to update preferred models" },
+        { status: 500 },
+      );
+    }
+
+    logger.info("Preferred models updated via API", {
+      userId: session.user.id,
+      count: parsed.data.preferredModels.length,
+    });
+  }
 
   return NextResponse.json({ message: "Settings updated successfully" });
 }

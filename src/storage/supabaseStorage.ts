@@ -5,6 +5,7 @@ import type {
 } from "./types";
 import type { CouncilModeId } from "../core/types";
 import { logger } from "../core/logger";
+import { MAX_CONVERSATIONS_PER_USER } from "../config";
 
 /**
  * Supabase storage provider — stores conversations in PostgreSQL.
@@ -37,13 +38,12 @@ type SupabaseQueryBuilder = {
     column: string,
     opts: { ascending: boolean },
   ) => Promise<SupabaseQueryResult>;
-  eq: (
-    column: string,
-    value: string,
-  ) => SupabaseQueryBuilder;
+  eq: (column: string, value: string) => SupabaseQueryBuilder;
   single: () => Promise<SupabaseQueryResult>;
   then: <TResult1 = SupabaseQueryResult, TResult2 = never>(
-    onfulfilled?: (value: SupabaseQueryResult) => TResult1 | PromiseLike<TResult1>,
+    onfulfilled?: (
+      value: SupabaseQueryResult,
+    ) => TResult1 | PromiseLike<TResult1>,
     onrejected?: (reason: unknown) => TResult2 | PromiseLike<TResult2>,
   ) => Promise<TResult1 | TResult2>;
 };
@@ -126,8 +126,6 @@ function rowToConversation(row: Record<string, unknown>): StoredConversation {
   };
 }
 
-const MAX_CONVERSATIONS_PER_USER = 3;
-
 export const supabaseStorage: StorageProvider = {
   async list(userId: string): Promise<ConversationSummary[]> {
     const c = getClient();
@@ -171,7 +169,7 @@ export const supabaseStorage: StorageProvider = {
     const c = getClient();
     if (!c) throw new Error("Supabase client not available");
 
-    // Enforce max 3 conversations per user
+    // Enforce max conversations per user
     const userConvs = await this.list(conversation.userId);
     if (userConvs.length >= MAX_CONVERSATIONS_PER_USER) {
       const oldest = userConvs[userConvs.length - 1];

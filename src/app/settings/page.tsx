@@ -15,6 +15,12 @@ type ProviderInfo = {
 type SettingsResponse = {
   providers: ProviderInfo[];
   settings: Record<string, { apiKey: string }>;
+  preferredModels: string[];
+};
+
+type ModelInfo = {
+  id: string;
+  name: string;
 };
 
 export default function SettingsPage() {
@@ -29,6 +35,13 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Preferred models (index 0 is the default applied to all agents)
+  const [preferredModels, setPreferredModels] = useState<string[]>([]);
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(true);
+  const [savingModels, setSavingModels] = useState(false);
+  const [modelsMessage, setModelsMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -46,6 +59,7 @@ export default function SettingsPage() {
       .then((data: SettingsResponse) => {
         setProviders(data.providers);
         setSavedKeys(data.settings);
+        setPreferredModels(data.preferredModels ?? []);
         setValidatedKeys({});
         // Initialize empty input fields
         const keys: Record<string, string> = {};
@@ -59,6 +73,63 @@ export default function SettingsPage() {
       })
       .finally(() => setLoading(false));
   }, [session?.user?.id]);
+
+  // Fetch the available (free) OpenRouter models for the picker.
+  // `modelsLoading` starts true, so we only flip it to false when done.
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    let cancelled = false;
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((data: { models?: ModelInfo[] }) => {
+        if (!cancelled) setAvailableModels(data.models ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableModels([]);
+      })
+      .finally(() => {
+        if (!cancelled) setModelsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user?.id]);
+
+  const handleSavePreferredModels = useCallback(async () => {
+    setSavingModels(true);
+    setModelsMessage(null);
+    try {
+      const res = await fetch("/api/user/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferredModels }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setModelsMessage({ type: "error", text: data.error || "Failed to save models" });
+        return;
+      }
+      setModelsMessage({ type: "success", text: "Preferred models saved successfully" });
+    } catch {
+      setModelsMessage({ type: "error", text: "Failed to save models" });
+    } finally {
+      setSavingModels(false);
+    }
+  }, [preferredModels]);
+
+  const handleToggleModel = useCallback((modelId: string) => {
+    setModelsMessage(null);
+    setPreferredModels((prev) =>
+      prev.includes(modelId)
+        ? prev.filter((id) => id !== modelId)
+        : [...prev, modelId],
+    );
+  }, []);
+
+  const handleClearModels = useCallback(() => {
+    setModelsMessage(null);
+    setPreferredModels([]);
+  }, []);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -176,6 +247,12 @@ export default function SettingsPage() {
             >
               API Provider Keys
             </TabButton>
+            <TabButton
+              active={activeTab === "models"}
+              onClick={() => setActiveTab("models")}
+            >
+              Preferred Models
+            </TabButton>
           </div>
 
           {/* Tab Panels */}
@@ -194,6 +271,19 @@ export default function SettingsPage() {
               onTestSuccess={(providerId, key) =>
                 setValidatedKeys((prev) => ({ ...prev, [providerId]: key }))
               }
+            />
+          )}
+
+          {activeTab === "models" && (
+            <ModelsTab
+              availableModels={availableModels}
+              preferredModels={preferredModels}
+              loading={modelsLoading}
+              saving={savingModels}
+              message={modelsMessage}
+              onToggle={handleToggleModel}
+              onClear={handleClearModels}
+              onSave={handleSavePreferredModels}
             />
           )}
         </div>
@@ -502,6 +592,186 @@ function ProviderKeyCard({
             </p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ModelsTab({
+  availableModels,
+  preferredModels,
+  loading,
+  saving,
+  message,
+  onToggle,
+  onClear,
+  onSave,
+}: {
+  availableModels: ModelInfo[];
+  preferredModels: string[];
+  loading: boolean;
+  saving: boolean;
+  message: { type: "success" | "error"; text: string } | null;
+  onToggle: (modelId: string) => void;
+  onClear: () => void;
+  onSave: () => void;
+}) {
+  const [search, setSearch] = useState("");
+
+  const selectedSet = new Set(preferredModels);
+
+  // Resolve a display name for any model id (falls back to the id's last segment)
+  const nameFor = (id: string) =>
+    availableModels.find((m) => m.id === id)?.name ?? id.split("/").pop() ?? id;
+
+  const filtered = search.trim()
+    ? availableModels.filter(
+        (m) =>
+          m.id.toLowerCase().includes(search.toLowerCase()) ||
+          m.name.toLowerCase().includes(search.toLowerCase()),
+      )
+    : availableModels;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 rounded-full border-4 border-zinc-700 border-t-blue-500 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-zinc-400">
+        Pick the models you want your council agents to use. Each agent that you
+        haven&apos;t given its own model in Customize Agents is assigned a{" "}
+        <span className="text-zinc-200">random model from this list</span> on
+        every run — pick one to run everything on it, or several to spread agents
+        across them. Leave empty to use the system default ({" "}
+        <span className="font-mono text-zinc-300">openrouter/free</span> ).
+      </p>
+
+      {message && (
+        <div
+          className={`p-3 rounded-lg border text-sm ${
+            message.type === "success"
+              ? "bg-green-500/10 border-green-500/30 text-green-300"
+              : "bg-red-500/10 border-red-500/30 text-red-400"
+          }`}
+        >
+          {message.text}
+        </div>
+      )}
+
+      {availableModels.length === 0 ? (
+        <p className="text-sm text-zinc-500">
+          No models available. Set an{" "}
+          <span className="font-mono">OPENROUTER_API_KEY</span> to load the
+          OpenRouter model list.
+        </p>
+      ) : (
+        <>
+          {/* Selected models summary */}
+          {preferredModels.length > 0 && (
+            <div className="border border-zinc-700 rounded-lg bg-zinc-900 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-zinc-200">
+                  Selected ({preferredModels.length})
+                </h3>
+                <button
+                  onClick={onClear}
+                  className="text-xs text-zinc-500 hover:text-red-400 transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {preferredModels.map((id) => (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border bg-zinc-800 border-zinc-700 text-zinc-300"
+                  >
+                    <span className="font-mono">{nameFor(id)}</span>
+                    <button
+                      onClick={() => onToggle(id)}
+                      className="text-zinc-500 hover:text-red-400 transition-colors"
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Model picker */}
+          <div className="space-y-3">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search models..."
+              className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            />
+            <div className="border border-zinc-700 rounded-lg bg-zinc-900 max-h-96 overflow-y-auto divide-y divide-zinc-800">
+              {filtered.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-zinc-500">
+                  No models match &quot;{search}&quot;.
+                </p>
+              ) : (
+                filtered.map((m) => {
+                  const checked = selectedSet.has(m.id);
+                  return (
+                    <label
+                      key={m.id}
+                      className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-zinc-800/50 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => onToggle(m.id)}
+                        className="w-4 h-4 accent-blue-500"
+                      />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm text-zinc-200 truncate">
+                          {m.name}
+                        </span>
+                        <span className="block text-xs text-zinc-500 font-mono truncate">
+                          {m.id}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Save */}
+      <div className="flex items-center gap-4 pt-2">
+        <button
+          onClick={onSave}
+          disabled={saving}
+          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-medium rounded-lg transition-colors"
+        >
+          {saving ? (
+            <span className="flex items-center gap-2">
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Saving...
+            </span>
+          ) : (
+            "Save Preferred Models"
+          )}
+        </button>
+        <Link
+          href="/"
+          className="px-6 py-2.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+        >
+          Cancel
+        </Link>
       </div>
     </div>
   );

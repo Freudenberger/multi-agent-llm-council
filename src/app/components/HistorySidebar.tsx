@@ -205,7 +205,7 @@ export function HistorySidebar({ onLoad, currentResultId }: HistorySidebarProps)
         <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
           <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-zinc-200">Saved Sessions</h3>
-            <span className="text-xs text-zinc-500">Max 3 · Newest first</span>
+            <span className="text-xs text-zinc-500">Max 5 · Newest first</span>
           </div>
 
           {history.length === 0 ? (

@@ -5,6 +5,8 @@ export type GenerateInput = {
   userMessage: string;
   temperature?: number;
   maxTokens?: number;
+  /** Optional abort signal — aborts the in-flight request when it fires. */
+  signal?: AbortSignal;
 };
 
 export type GenerateOutput = {

@@ -58,3 +58,15 @@ export class ProviderTimeoutError extends CouncilError {
     this.name = "ProviderTimeoutError";
   }
 }
+
+/**
+ * Thrown when a council run is cancelled via its AbortSignal (e.g. the user
+ * cancels from the UI). Signals an intentional stop, not a failure — callers
+ * should not retry and should not surface it as an error to the user.
+ */
+export class CouncilAbortedError extends CouncilError {
+  constructor(message = "Council run was cancelled") {
+    super(message);
+    this.name = "CouncilAbortedError";
+  }
+}
