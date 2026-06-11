@@ -5,8 +5,8 @@
 name: Build and Test
 
 on:
-  push:
-    branches: ["main"]
+  # push:
+  #   branches: ["main"]
   workflow_dispatch:
 
 # Cancel superseded runs on the same ref to save CI minutes.
@@ -43,9 +43,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Next.js 16 requires Node 20.9+. See the release schedule:
         # https://nodejs.org/en/about/releases/
-        node-version: [20.x, 22.x]
+        node-version: [22.x]
 
     env:
       # Demo mode: runs end-to-end with no API keys (see CLAUDE.md / AGENTS.md).
