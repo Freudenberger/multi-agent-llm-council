@@ -47,3 +47,4 @@ data/**/*.*
 
 # raw council transcripts (COUNCIL_RAW_LOG)
 /logs
+junit.xml
