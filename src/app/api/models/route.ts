@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { logger } from "@/core/logger";
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -16,7 +16,18 @@ export type ModelInfo = {
   free: boolean;
 };
 
-function isFreeModel(pricing: { prompt: string; completion: string }): boolean {
+// Raw model shape as returned by the OpenRouter `/models` endpoint.
+type OpenRouterModel = {
+  id: string;
+  description?: string;
+  context_length?: number;
+  pricing?: { prompt?: string; completion?: string };
+};
+
+function isFreeModel(pricing: {
+  prompt?: string;
+  completion?: string;
+}): boolean {
   return pricing.prompt === "0" && pricing.completion === "0";
 }
 
@@ -50,10 +61,10 @@ export async function GET() {
       );
     }
 
-    const data = await response.json();
+    const data: { data?: OpenRouterModel[] } = await response.json();
     const models: ModelInfo[] = (data.data || [])
-      .filter((m: any) => isFreeModel(m.pricing || {}))
-      .map((m: any) => ({
+      .filter((m) => isFreeModel(m.pricing || {}))
+      .map((m) => ({
         id: m.id,
         name: m.id.split("/").pop() || m.id,
         description: m.description || "",

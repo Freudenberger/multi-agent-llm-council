@@ -9,7 +9,8 @@
       "Bash(npx vitest *)",
       "Bash(npm test *)",
       "PowerShell(npm run *)",
-      "Bash(LLM_PROVIDER=mock DB_PROVIDER=local AUTH_SECRET=ci-test npx vitest run --coverage)"
+      "Bash(LLM_PROVIDER=mock DB_PROVIDER=local AUTH_SECRET=ci-test npx vitest run --coverage)",
+      "Bash(npx eslint *)"
     ]
   }
 }

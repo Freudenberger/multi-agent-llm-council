@@ -222,9 +222,9 @@ describe("OpenRouterProvider — timeout handling", () => {
 
   it("should abort a request that exceeds the timeout and retry", async () => {
     // First call: respects abort signal and throws AbortError
-    fetchMock.mockImplementationOnce((_url: string, init: any) => {
+    fetchMock.mockImplementationOnce((_url: string, init: RequestInit) => {
       return new Promise<Response>((_resolve, reject) => {
-        init.signal.addEventListener("abort", () => {
+        init.signal?.addEventListener("abort", () => {
           reject(new DOMException("The operation was aborted.", "AbortError"));
         });
       });
@@ -250,9 +250,9 @@ describe("OpenRouterProvider — timeout handling", () => {
 
   it("should throw ProviderRetryError when timeout exhausts all retries", async () => {
     // All calls hang until aborted
-    fetchMock.mockImplementation((_url: string, init: any) => {
+    fetchMock.mockImplementation((_url: string, init: RequestInit) => {
       return new Promise<Response>((_resolve, reject) => {
-        init.signal.addEventListener("abort", () => {
+        init.signal?.addEventListener("abort", () => {
           reject(new DOMException("The operation was aborted.", "AbortError"));
         });
       });
@@ -308,12 +308,20 @@ describe("OpenRouterProvider — configuration", () => {
     restoreFetch();
   });
 
+  // Typed view of the provider's private config fields, for assertions.
+  type ProviderInternals = {
+    retryConfig: { maxRetries: number; baseDelayMs: number };
+    timeoutConfig: { requestTimeoutMs: number };
+  };
+  const internals = (provider: OpenRouterProvider) =>
+    provider as unknown as ProviderInternals;
+
   it("should use default retry config when none provided", () => {
     const provider = new OpenRouterProvider("test-key", "test-model");
     // Access private fields via cast for assertion
-    expect((provider as any).retryConfig.maxRetries).toBe(3);
-    expect((provider as any).retryConfig.baseDelayMs).toBe(1000);
-    expect((provider as any).timeoutConfig.requestTimeoutMs).toBe(60000);
+    expect(internals(provider).retryConfig.maxRetries).toBe(3);
+    expect(internals(provider).retryConfig.baseDelayMs).toBe(1000);
+    expect(internals(provider).timeoutConfig.requestTimeoutMs).toBe(60000);
   });
 
   it("should accept custom retry and timeout config", () => {
@@ -323,9 +331,9 @@ describe("OpenRouterProvider — configuration", () => {
       { maxRetries: 5, baseDelayMs: 2000 },
       { requestTimeoutMs: 120000 },
     );
-    expect((provider as any).retryConfig.maxRetries).toBe(5);
-    expect((provider as any).retryConfig.baseDelayMs).toBe(2000);
-    expect((provider as any).timeoutConfig.requestTimeoutMs).toBe(120000);
+    expect(internals(provider).retryConfig.maxRetries).toBe(5);
+    expect(internals(provider).retryConfig.baseDelayMs).toBe(2000);
+    expect(internals(provider).timeoutConfig.requestTimeoutMs).toBe(120000);
   });
 
   it("should throw when API key is missing", async () => {

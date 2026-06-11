@@ -4,7 +4,7 @@ import {
   buildJudgeSystemPrompt,
   buildJudgeUserMessage,
 } from "@/prompts/buildPrompts";
-import type { CouncilAgent } from "@/core/types";
+import type { CouncilAgent, CouncilModeId } from "@/core/types";
 
 describe("buildPrompts", () => {
   const sampleAgent: CouncilAgent = {
@@ -70,7 +70,11 @@ describe("buildPrompts", () => {
     });
 
     it("should handle unknown mode gracefully", () => {
-      const msg = buildAgentUserMessage("unknown" as any, "test", sampleAgent);
+      const msg = buildAgentUserMessage(
+        "unknown" as unknown as CouncilModeId,
+        "test",
+        sampleAgent,
+      );
       expect(msg).toContain("multi-perspective analysis council");
     });
   });
