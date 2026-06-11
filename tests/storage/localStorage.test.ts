@@ -97,13 +97,15 @@ describe("localStorage", () => {
     });
 
     it("should not affect other users' conversations when enforcing limit", async () => {
-      for (let i = 1; i <= 3; i++) {
+      // Push user-a over the limit (6 > 5) so eviction actually fires.
+      for (let i = 1; i <= 6; i++) {
         await localStorage.save(
           makeConversation(`test-other-a-${i}`, "user-a", {
             createdAt: new Date(Date.now() + i * 1000).toISOString(),
           }),
         );
       }
+      // user-b stays under the limit and must be left untouched.
       for (let i = 1; i <= 3; i++) {
         await localStorage.save(
           makeConversation(`test-other-b-${i}`, "user-b", {
@@ -112,17 +114,12 @@ describe("localStorage", () => {
         );
       }
 
-      // Add a 4th for user-a
-      await localStorage.save(
-        makeConversation("test-other-a-4", "user-a", {
-          createdAt: new Date(Date.now() + 4000).toISOString(),
-        }),
-      );
-
       const listA = await localStorage.list("user-a");
       const listB = await localStorage.list("user-b");
-      expect(listA).toHaveLength(5); // 3 original + 1 new + 1 evicted
-      expect(listB).toHaveLength(3);
+      expect(listA).toHaveLength(5); // capped at the limit; oldest evicted
+      expect(listB).toHaveLength(3); // unaffected by user-a's eviction
+      // The oldest user-a conversation should have been evicted.
+      expect(listA.find((c) => c.id === "test-other-a-1")).toBeUndefined();
     });
   });
 
