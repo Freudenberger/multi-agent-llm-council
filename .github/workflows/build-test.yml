@@ -1,31 +1,102 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# Builds the source, runs typecheck/lint, and runs the Vitest suite across Node versions.
+# Test results and coverage are published back to the GitHub Actions run.
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 
-name: Node.js CI
+name: Build and Test
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Needed by dorny/test-reporter to publish a check run with test results.
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
 
 jobs:
-  build:
+  # Lint + typecheck once — these don't vary by Node version.
+  quality:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: "npm"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
 
+  build:
+    name: Build & Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [18.x, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+        # Next.js 16 requires Node 20.9+. See the release schedule:
+        # https://nodejs.org/en/about/releases/
+        node-version: [20.x, 22.x]
+
+    env:
+      # Demo mode: runs end-to-end with no API keys (see CLAUDE.md / AGENTS.md).
+      LLM_PROVIDER: mock
+      DB_PROVIDER: local
+      AUTH_SECRET: ci-test-secret-not-used-in-production
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm ci
-    - run: npm run build --if-present
-    - run: npm test
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+      - run: npm ci
+      - run: npm run build
+
+      - name: Run tests with coverage
+        run: >-
+          npx vitest run --coverage
+          --reporter=default
+          --reporter=github-actions
+          --reporter=junit
+          --outputFile=test-results/junit.xml
+
+      # Persist raw reports as downloadable artifacts.
+      - name: Upload test & coverage reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-node-${{ matrix.node-version }}
+          path: |
+            test-results/
+            coverage/
+          if-no-files-found: ignore
+
+      # Publish a check run with a pass/fail breakdown of each test.
+      - name: Publish test report
+        if: ${{ !cancelled() }}
+        uses: dorny/test-reporter@v3
+        with:
+          name: Test Results (Node ${{ matrix.node-version }})
+          path: test-results/junit.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      # Render the coverage table on the run's summary page.
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          json-summary-path: coverage/coverage-summary.json
+          json-final-path: coverage/coverage-final.json
+          name: Coverage (Node ${{ matrix.node-version }})
