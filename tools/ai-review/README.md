@@ -14,7 +14,7 @@ Definition of Done and returns a **schema-validated** verdict, wired into CI so 
 | [cli.ts](./cli.ts) | `npm run review` — diff in (file/git/stdin), JSON or Markdown out, exit-code gate | M5L2 |
 | [promptfooconfig.yaml](./promptfooconfig.yaml) + [prompt.txt](./prompt.txt) | Model comparison + verdict regression eval | M5L3 Task 3 |
 | [fixtures/](./fixtures/) | Sample diffs (one unsafe, one clean) | test cases |
-| [../../.github/workflows/ai-review.yml](../../.github/workflows/ai-review.yml) | CI: run on PR, post the verdict as a comment | M5L3 — pipeline |
+| [../../.github/workflows/ai-review.yml](../../.github/workflows/ai-review.yml) | CI: run on PR, post the verdict as a comment + a **JUnit check run** | M5L3 — pipeline |
 
 **Design note:** the agent calls `createProvider()` ([src/providers](../../src/providers)), the
 same seam the council uses — so it runs **keyless** under `LLM_PROVIDER=mock` (deterministic
@@ -38,6 +38,14 @@ npm run review -- --diff tools/ai-review/fixtures/sql-injection.diff --json
 ```
 
 For a **real LLM** review locally: `OPENROUTER_API_KEY=sk-... LLM_PROVIDER=openrouter npm run review -- --git origin/main`.
+
+**Timeout** — each provider call is aborted if it doesn't respond within **60s** (fail-closed → retry → degraded fail). Override with `--timeout <seconds>` or the `AI_REVIEW_TIMEOUT` env var.
+
+**JUnit output** — `--junit <file>` writes a JUnit XML report (one test case per DoD dimension, per finding, and the overall verdict). The CI workflow feeds it to `dorny/test-reporter`, so the review also appears as a **GitHub "AI Code Review" check run** with per-dimension pass/fail — a fourth, structured piece of evidence beyond the PR comment:
+
+```bash
+npm run review -- --diff tools/ai-review/fixtures/sql-injection.diff --junit review-junit.xml
+```
 
 ## Run the model-comparison eval (M5L3 Task 3)
 
