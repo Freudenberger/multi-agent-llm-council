@@ -57,7 +57,7 @@ jobs:
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           # v2 needs a structured-output model; default to a reliable one (free models stall).
-          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openai/gpt-4o-mini' }}
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openrouter/free' }}
         run: |
           # v2 has no mock fallback — without a key there is nothing to run.
           if [ -z "$OPENROUTER_API_KEY" ]; then
