@@ -82,7 +82,8 @@ jobs:
           fi
 
           # --no-fail: post the comment even on a "fail" verdict; gate separately below.
-          npm run review -- --diff pr.diff --comment review-comment.md --no-fail --verbose | tee review.out
+          # --junit: emit a JUnit report so the result shows up as a check run.
+          npm run review -- --diff pr.diff --comment review-comment.md --junit review-junit.xml --no-fail --verbose | tee review.out
           # Surface the verdict for the gate step.
           if grep -q '\*\*FAIL\*\*' review-comment.md; then
             echo "verdict=fail" >> "$GITHUB_OUTPUT"
@@ -109,8 +110,28 @@ jobs:
               await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
 
+      - name: Publish review as a check run
+        if: always() && hashFiles('review-junit.xml') != ''
+        uses: dorny/test-reporter@v1
+        with:
+          name: AI Code Review
+          path: review-junit.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Upload review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-review
+          path: |
+            review-comment.md
+            review-junit.xml
+            review.out
+          if-no-files-found: ignore
+
       - name: Gate (informational)
         if: steps.review.outputs.verdict == 'fail'
         run: |
-          echo "::warning::AI reviewer returned a FAIL verdict — see the PR comment."
+          echo "::warning::AI reviewer returned a FAIL verdict — see the PR comment / check run."
           # Make this a hard gate by switching to: exit 1
