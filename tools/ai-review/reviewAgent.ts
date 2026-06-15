@@ -124,7 +124,42 @@ function enforceVerdictRule(v: ReviewVerdict): {
 /** Optional step-level progress events (used by the CLI's --verbose mode). */
 export type ReviewOptions = {
   onEvent?: (message: string) => void;
+  /** Per-provider-call timeout in ms (the call is aborted past this). Default 60s. */
+  timeoutMs?: number;
 };
+
+export const DEFAULT_TIMEOUT_MS = 60_000;
+
+function isTimeoutError(e: unknown): boolean {
+  const err = e as { name?: string; message?: string };
+  return (
+    err?.name === "TimeoutError" ||
+    err?.name === "AbortError" ||
+    /abort|timed?\s*out|timeout/i.test(err?.message ?? "")
+  );
+}
+
+/** A hard-fail verdict used when the reviewer can't be trusted (no parseable
+ *  output, or the provider errored/timed out). Fails closed — never "pass". */
+function failClosed(model: string, reason?: string): ReviewResult {
+  const detail = reason
+    ? `Reviewer could not complete: ${reason}. Failing closed — a human must review.`
+    : "Reviewer returned a response that did not match the required schema. Failing closed — a human must review.";
+  return {
+    degraded: true,
+    model,
+    verdict: {
+      implementationCorrectness: 1,
+      idiomaticity: 1,
+      simplicity: 1,
+      testRiskCoverage: 1,
+      securitySafety: 1,
+      verdict: "fail",
+      summary: detail,
+      findings: [{ severity: "blocker", note: reason ?? "Unparseable reviewer output." }],
+    },
+  };
+}
 
 /**
  * Reviews a unified diff and returns a validated verdict. Retries once on a
@@ -155,24 +190,59 @@ export async function reviewDiff(
 
   const provider = createProvider();
   const userMessage = `Review this unified diff:\n\n${diff}`;
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   emit(
-    `prompt prepared (system ${SYSTEM_PROMPT.length} chars, diff ${diff.length} chars, maxTokens ${MAX_TOKENS}, temp 0.2)`,
+    `prompt prepared (system ${SYSTEM_PROMPT.length} chars, diff ${diff.length} chars, maxTokens ${MAX_TOKENS}, temp 0.2, timeout ${timeoutMs}ms)`,
   );
+
+  /** Call the provider with a hard per-call timeout. Returns content or an error string. */
+  async function callProvider(
+    systemPrompt: string,
+    user: string,
+    temperature: number,
+    maxTokens: number,
+  ): Promise<{ content: string; model: string; ms: number } | { error: string; ms: number }> {
+    const t0 = performance.now();
+    const signal = AbortSignal.timeout(timeoutMs);
+    try {
+      const r = await provider.generate({
+        systemPrompt,
+        userMessage: user,
+        temperature,
+        maxTokens,
+        signal,
+      });
+      return { content: r.content, model: r.model, ms: Math.round(performance.now() - t0) };
+    } catch (e) {
+      const ms = Math.round(performance.now() - t0);
+      // We own this signal, so `signal.aborted` reliably means our timeout fired.
+      const msg =
+        signal.aborted || isTimeoutError(e)
+          ? `timed out after ${timeoutMs}ms`
+          : e instanceof Error
+            ? e.message
+            : String(e);
+      return { error: msg, ms };
+    }
+  }
 
   let lastContent = "";
   let lastModel = "unparsed";
+  let lastError = "";
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    emit(`attempt ${attempt}/${MAX_ATTEMPTS}: calling provider…`);
-    const t0 = performance.now();
-    const { content, model } = await provider.generate({
-      systemPrompt: SYSTEM_PROMPT,
-      userMessage,
-      temperature: 0.2,
-      maxTokens: MAX_TOKENS,
-    });
+    emit(`attempt ${attempt}/${MAX_ATTEMPTS}: calling provider (timeout ${timeoutMs}ms)…`);
+    const res = await callProvider(SYSTEM_PROMPT, userMessage, 0.2, MAX_TOKENS);
+    if ("error" in res) {
+      lastError = res.error;
+      emit(
+        `attempt ${attempt}: provider error after ${res.ms}ms — ${res.error}${attempt < MAX_ATTEMPTS ? " (retrying)" : ""}`,
+      );
+      logger.info("AI review: provider call failed", { attempt, reason: res.error });
+      continue;
+    }
+    const { content, model, ms } = res;
     lastContent = content;
     lastModel = model;
-    const ms = Math.round(performance.now() - t0);
     emit(
       `attempt ${attempt}: received ${content.length} chars from ${model} in ${ms}ms`,
     );
@@ -203,14 +273,20 @@ export async function reviewDiff(
     emit(
       "repair: model did not emit JSON — asking it to reformat its review as JSON…",
     );
-    const t0 = performance.now();
-    const { content, model } = await provider.generate({
-      systemPrompt: `${SENTINEL}\nYou convert a written code review into a single JSON object. Output ONLY the JSON, no prose, no code fences, matching exactly:\n${JSON_SHAPE}\nIf a score is missing from the review, infer a reasonable 1-10 value; apply the verdict rule (fail if any dimension <= 3, or securitySafety <= 5, or a blocker finding).`,
-      userMessage: `Convert this code review into the JSON object:\n\n${lastContent}`,
-      temperature: 0,
-      maxTokens: 1200,
-    });
-    const ms = Math.round(performance.now() - t0);
+    const repairSystem = `${SENTINEL}\nYou convert a written code review into a single JSON object. Output ONLY the JSON, no prose, no code fences, matching exactly:\n${JSON_SHAPE}\nIf a score is missing from the review, infer a reasonable 1-10 value; apply the verdict rule (fail if any dimension <= 3, or securitySafety <= 5, or a blocker finding).`;
+    const res = await callProvider(
+      repairSystem,
+      `Convert this code review into the JSON object:\n\n${lastContent}`,
+      0,
+      1200,
+    );
+    if ("error" in res) {
+      lastError = res.error;
+      emit(`repair: provider error after ${res.ms}ms — ${res.error}`);
+      logger.info("AI review: repair call failed", { reason: res.error });
+      return failClosed(lastModel, lastError);
+    }
+    const { content, model, ms } = res;
     emit(`repair: received ${content.length} chars from ${model} in ${ms}ms`);
     const parsed = parseVerdict(content);
     if ("verdict" in parsed) {
@@ -229,22 +305,8 @@ export async function reviewDiff(
     });
   }
 
-  // Fail-closed: an unparseable reviewer must not read as approval.
-  return {
-    degraded: true,
-    model: lastModel,
-    verdict: {
-      implementationCorrectness: 1,
-      idiomaticity: 1,
-      simplicity: 1,
-      testRiskCoverage: 1,
-      securitySafety: 1,
-      verdict: "fail",
-      summary:
-        "Reviewer returned a response that did not match the required schema after a retry. Failing closed — a human must review.",
-      findings: [{ severity: "blocker", note: "Unparseable reviewer output." }],
-    },
-  };
+  // Fail-closed: an unparseable/failed reviewer must not read as approval.
+  return failClosed(lastModel, lastError || undefined);
 }
 
 export { SENTINEL, SYSTEM_PROMPT };

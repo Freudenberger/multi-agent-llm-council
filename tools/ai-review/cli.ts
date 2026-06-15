@@ -13,6 +13,7 @@
  *   --json            print only the JSON verdict (for piping)
  *   --comment <file>  also write a Markdown PR-comment body to <file>
  *   --junit <file>    also write a JUnit XML report (for GitHub Actions check runs)
+ *   --timeout <sec>   per-provider-call timeout in seconds (default 60; or AI_REVIEW_TIMEOUT)
  *   --no-fail         always exit 0 (don't gate on a "fail" verdict)
  *
  * Exit code: 1 when the verdict is "fail" (so CI can gate), unless --no-fail.
@@ -27,7 +28,7 @@ const USAGE = `Usage:
   npm run review -- --git [base]      review working changes vs a ref (default: origin/main)
   git diff | npm run review           review a piped diff
   
-Flags: --json  --comment <file>  --junit <file>  --no-fail  --verbose|-v
+Flags: --json  --comment <file>  --junit <file>  --timeout <sec>  --no-fail  --verbose|-v
 `;
 
 /**
@@ -280,8 +281,12 @@ async function main() {
     );
   }
 
+  const timeoutArg = arg("--timeout") ?? process.env.AI_REVIEW_TIMEOUT;
+  const timeoutMs = timeoutArg ? Math.max(1, Number(timeoutArg)) * 1000 : undefined;
+
   const { verdict, model, degraded } = await reviewDiff(diff, {
     onEvent: verbose ? note : undefined,
+    timeoutMs,
   });
   note(
     `done in ${Date.now() - started}ms — verdict=${verdict.verdict}${degraded ? " (degraded)" : ""}, model=${model}, findings=${verdict.findings?.length ?? 0}`,
