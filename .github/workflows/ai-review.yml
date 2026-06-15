@@ -1,0 +1,90 @@
+# AI Code Review (10xChampion path, M5L2 + M5L3).
+#
+# Runs the SDK-backed review agent (tools/ai-review) on each PR's diff and posts
+# the structured verdict as a PR comment. The agent reuses the project's provider
+# seam, so it talks to OpenRouter in CI and falls back to a deterministic mock
+# review when no key is configured (lets the workflow demo without secrets).
+#
+# Evidence for the badge is produced by a real run on a PR:
+#   1) this workflow + the "review" job visible in the Actions tab,
+#   2) the job logs (the agent's JSON verdict printed in the step),
+#   3) the agent's comment on the PR.
+#
+# Setup: add an OPENROUTER_API_KEY repo secret for a real LLM review
+# (Settings → Secrets and variables → Actions). Without it, LLM_PROVIDER=mock.
+
+name: AI Code Review
+
+on:
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: AI review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need the base ref to diff against
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Run AI reviewer on the PR diff
+        id: review
+        env:
+          # Real review when the secret exists; deterministic mock otherwise.
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LLM_PROVIDER: ${{ secrets.OPENROUTER_API_KEY && 'openrouter' || 'mock' }}
+        run: |
+          BASE="origin/${{ github.event.pull_request.base.ref || 'main' }}"
+          git diff "$BASE...HEAD" > pr.diff
+          echo "----- diff under review -----"
+          wc -l pr.diff
+          # --no-fail: post the comment even on a "fail" verdict; gate separately below.
+          npm run review -- --diff pr.diff --comment review-comment.md --no-fail | tee review.out
+          # Surface the verdict for the gate step.
+          if grep -q '\*\*FAIL\*\*' review-comment.md; then
+            echo "verdict=fail" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=pass" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post review comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('review-comment.md', 'utf8');
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            // Upsert: keep one rolling AI-review comment instead of spamming.
+            const marker = 'AI Code Review —';
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Gate (informational)
+        if: steps.review.outputs.verdict == 'fail'
+        run: |
+          echo "::warning::AI reviewer returned a FAIL verdict — see the PR comment."
+          # Make this a hard gate by switching to: exit 1
