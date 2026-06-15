@@ -16,9 +16,15 @@
 name: AI Code Review
 
 on:
+  # Uncomment to review every PR automatically (this is the badge-evidence path):
   # pull_request:
   #   types: [opened, synchronize, reopened]
   workflow_dispatch:
+    inputs:
+      base:
+        description: "Base ref to diff against for manual runs (default: HEAD~1 = the last commit)."
+        required: false
+        default: "HEAD~1"
 
 permissions:
   contents: read
@@ -44,19 +50,39 @@ jobs:
 
       - run: npm ci
 
-      - name: Run AI reviewer on the PR diff
+      - name: Run AI reviewer on the diff
         id: review
         env:
           # Real review when the secret exists; deterministic mock otherwise.
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           LLM_PROVIDER: ${{ secrets.OPENROUTER_API_KEY && 'openrouter' || 'mock' }}
+          # Set an OPENROUTER_MODEL repo variable for a JSON-reliable model
+          # (Settings → Secrets and variables → Actions → Variables). Falls back to free.
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openrouter/free' }}
         run: |
-          BASE="origin/${{ github.event.pull_request.base.ref || 'main' }}"
-          git diff "$BASE...HEAD" > pr.diff
-          echo "----- diff under review -----"
+          # On a PR, diff the PR's base→head SHAs (both present thanks to fetch-depth: 0).
+          # On a manual run, there is no PR, so review the last commit (or the chosen base).
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE='${{ github.event.pull_request.base.sha }}'
+            HEAD='${{ github.event.pull_request.head.sha }}'
+          else
+            BASE="${{ github.event.inputs.base }}"
+            BASE="${BASE:-HEAD~1}"
+            HEAD="HEAD"
+          fi
+          echo "----- diffing ${BASE}...${HEAD} -----"
+          git diff "${BASE}...${HEAD}" > pr.diff || git diff "${BASE}" "${HEAD}" > pr.diff
           wc -l pr.diff
+
+          if [ ! -s pr.diff ]; then
+            echo "No changes to review (base=${BASE} head=${HEAD})."
+            printf '### ✅ AI Code Review — **PASS**\n\n_No changes to review for this run (base=%s)._\n' "${BASE}" > review-comment.md
+            echo "verdict=pass" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           # --no-fail: post the comment even on a "fail" verdict; gate separately below.
-          npm run review -- --diff pr.diff --comment review-comment.md --no-fail | tee review.out
+          npm run review -- --diff pr.diff --comment review-comment.md --no-fail --verbose | tee review.out
           # Surface the verdict for the gate step.
           if grep -q '\*\*FAIL\*\*' review-comment.md; then
             echo "verdict=fail" >> "$GITHUB_OUTPUT"
