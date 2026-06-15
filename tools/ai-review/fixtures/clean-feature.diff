@@ -1,0 +1,26 @@
+diff --git a/src/core/types.ts b/src/core/types.ts
+index 1111111..2222222 100644
+--- a/src/core/types.ts
++++ b/src/core/types.ts
+@@ -3,6 +3,7 @@ export type CouncilModeId =
+   | "decision"
+   | "idea"
+   | "criticalReview"
++  | "brainstorm"
+   | "learning"
+   | "technical"
+   | "answer"
+diff --git a/tests/core/modes.test.ts b/tests/core/modes.test.ts
+index 3333333..4444444 100644
+--- a/tests/core/modes.test.ts
++++ b/tests/core/modes.test.ts
+@@ -20,4 +20,9 @@ describe("council modes", () => {
+   it("exposes the decision mode", () => {
+     expect(getMode("decision").agents.length).toBeGreaterThan(0);
+   });
++
++  it("exposes the new brainstorm mode with a judge", () => {
++    const mode = getMode("brainstorm");
++    expect(mode.agents.some((a) => a.isFinalJudge)).toBe(true);
++  });
+ });

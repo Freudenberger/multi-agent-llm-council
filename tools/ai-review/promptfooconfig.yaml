@@ -1,0 +1,56 @@
+# promptfoo eval suite for the AI code-review agent (10xChampion, M5L3 Task 3).
+# Compares 2–3 models side-by-side on prepared diffs and asserts the verdict is
+# correct + the output is valid JSON. Keep this as a regression gate for prompt changes.
+#
+# Run:   npx promptfoo@latest eval -c tools/ai-review/promptfooconfig.yaml
+# View:  npx promptfoo@latest view
+#
+# Requires OPENROUTER_API_KEY in the environment. Cost + latency per model are
+# shown in the results matrix (that table is the M5L3 "model comparison" evidence).
+
+description: AI code-review agent — model comparison & verdict regression gate
+
+providers:
+  - id: openrouter:nvidia/nemotron-3-ultra-550b-a55b:free
+    label: nemotron
+  - id: openrouter:poolside/laguna-m.1:free
+    label: laguna
+  - id: openrouter:openrouter/owl-alpha
+    label: owl-alpha
+
+prompt: file://prompt.txt
+
+tests:
+  # A diff that builds SQL by string interpolation from a query param → must FAIL on security.
+  - description: SQL injection via string-built query must be rejected
+    vars:
+      diff: file://fixtures/sql-injection.diff
+    assert:
+      - type: is-json
+      - type: javascript
+        value: JSON.parse(output).verdict === "fail"
+      - type: javascript
+        value: JSON.parse(output).securitySafety <= 5
+      - type: llm-rubric
+        value: The review flags SQL injection / unsafe string-built query as the reason to reject.
+
+  # A small, well-tested, idiomatic feature addition → should PASS.
+  - description: Clean feature with a matching test should pass
+    vars:
+      diff: file://fixtures/clean-feature.diff
+    assert:
+      - type: is-json
+      - type: javascript
+        value: JSON.parse(output).verdict === "pass"
+      - type: javascript
+        value: JSON.parse(output).testRiskCoverage >= 6
+
+defaultTest:
+  assert:
+    # Every response, every model, must be parseable into the contract.
+    - type: is-json
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        return ["implementationCorrectness","idiomaticity","simplicity","testRiskCoverage","securitySafety"]
+          .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);

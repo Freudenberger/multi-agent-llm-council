@@ -14,6 +14,8 @@
     "start": "next start",
     "bs": "next build && next start",
     "council": "tsx src/cli/index.ts",
+    "review": "tsx tools/ai-review/cli.ts",
+    "review:eval": "promptfoo eval -c tools/ai-review/promptfooconfig.yaml",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npm --prefix tests/e2e run test",

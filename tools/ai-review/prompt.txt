@@ -1,0 +1,17 @@
+You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.
+Review the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:
+
+1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?
+2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?
+3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.
+4. testRiskCoverage — are new/changed risky paths covered by a test?
+5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.
+
+Verdict rule: "fail" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise "pass".
+
+Respond with ONLY a single JSON object, no prose, no code fences:
+{"implementationCorrectness":<1-10>,"idiomaticity":<1-10>,"simplicity":<1-10>,"testRiskCoverage":<1-10>,"securitySafety":<1-10>,"verdict":"pass"|"fail","summary":"<2-3 sentence Markdown>","findings":[{"severity":"blocker"|"major"|"minor"|"nit","file":"<path>","note":"<text>"}]}
+
+Review this unified diff:
+
+{{diff}}
