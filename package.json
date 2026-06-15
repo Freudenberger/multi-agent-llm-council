@@ -14,7 +14,7 @@
     "start": "next start",
     "bs": "next build && next start",
     "council": "tsx src/cli/index.ts",
-    "review": "tsx tools/ai-review/cli.ts",
+    "review": "tsx tools/ai-review/v1/cli.ts",
     "review:v2": "tsx tools/ai-review/v2/cli.ts",
     "review:eval": "promptfoo eval -c tools/ai-review/promptfooconfig.yaml",
     "test": "vitest",

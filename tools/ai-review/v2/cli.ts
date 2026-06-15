@@ -17,6 +17,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { reviewDiffV2 } from "./reviewAgentV2";
+import { filterDiff } from "../filterDiff";
 import { REVIEW_DIMENSIONS, type ReviewVerdict } from "../schema";
 
 const USAGE = `Usage:
@@ -29,7 +30,9 @@ Requires OPENROUTER_API_KEY.
 `;
 
 function loadEnv(): void {
-  const load = (process as NodeJS.Process & { loadEnvFile?: (p: string) => void }).loadEnvFile;
+  const load = (
+    process as NodeJS.Process & { loadEnvFile?: (p: string) => void }
+  ).loadEnvFile;
   for (const f of [".env.local", ".env"]) {
     try {
       load?.(f);
@@ -45,14 +48,20 @@ const arg = (name: string): string | undefined => {
   return i !== -1 ? process.argv[i + 1] : undefined;
 };
 const has = (name: string): boolean => process.argv.includes(name);
-const note = (m: string): void => void process.stderr.write(`[ai-review v2] ${m}\n`);
+const note = (m: string): void =>
+  void process.stderr.write(`[ai-review v2] ${m}\n`);
 
 function git(args: string[]): string {
-  return execFileSync("git", args, { encoding: "utf8", maxBuffer: 10 * 1024 * 1024 });
+  return execFileSync("git", args, {
+    encoding: "utf8",
+    maxBuffer: 10 * 1024 * 1024,
+  });
 }
 function refExists(ref: string): boolean {
   try {
-    execFileSync("git", ["rev-parse", "--verify", "-q", ref], { stdio: "ignore" });
+    execFileSync("git", ["rev-parse", "--verify", "-q", ref], {
+      stdio: "ignore",
+    });
     return true;
   } catch {
     return false;
@@ -61,7 +70,10 @@ function refExists(ref: string): boolean {
 function resolveBase(explicit?: string): string | undefined {
   let remote: string | undefined;
   try {
-    remote = git(["remote"]).split("\n").map((s) => s.trim()).filter(Boolean)[0];
+    remote = git(["remote"])
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)[0];
   } catch {
     /* no remote */
   }
@@ -73,7 +85,10 @@ function loadDiff(): string {
   const diffFile = arg("--diff");
   if (diffFile) return readFileSync(diffFile, "utf8");
   if (has("--git")) {
-    const explicit = arg("--git") && !arg("--git")!.startsWith("--") ? arg("--git") : undefined;
+    const explicit =
+      arg("--git") && !arg("--git")!.startsWith("--")
+        ? arg("--git")
+        : undefined;
     const base = resolveBase(explicit);
     if (base) {
       const committed = git(["diff", `${base}...HEAD`]);
@@ -92,12 +107,21 @@ function loadDiff(): string {
   }
 }
 
-function toMarkdown(v: ReviewVerdict, model: string, degraded: boolean): string {
+function toMarkdown(
+  v: ReviewVerdict,
+  model: string,
+  degraded: boolean,
+): string {
   const rows = REVIEW_DIMENSIONS.map((d) => `| ${d} | ${v[d]}/10 |`).join("\n");
   const findings =
     v.findings && v.findings.length
       ? "\n\n**Findings**\n" +
-        v.findings.map((f) => `- \`${f.severity}\`${f.file ? ` ${f.file}` : ""}: ${f.note}`).join("\n")
+        v.findings
+          .map(
+            (f) =>
+              `- \`${f.severity}\`${f.file ? ` ${f.file}` : ""}: ${f.note}`,
+          )
+          .join("\n")
       : "";
   return `### ${v.verdict === "pass" ? "✅" : "❌"} AI Code Review (v2) — **${v.verdict.toUpperCase()}**${
     degraded ? " _(degraded: failing closed)_" : ""
@@ -113,27 +137,42 @@ ${rows}${findings}
 }
 
 function xmlEscape(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 function toJUnit(v: ReviewVerdict, model: string): string {
   const cases: { cls: string; name: string; fail?: string }[] = [];
   for (const d of REVIEW_DIMENSIONS) {
     const t = d === "securitySafety" ? 5 : 3;
-    cases.push({ cls: "ai-review.v2.dimensions", name: `${d} (${v[d]}/10)`, fail: v[d] <= t ? `score ${v[d]} <= ${t}` : undefined });
+    cases.push({
+      cls: "ai-review.v2.dimensions",
+      name: `${d} (${v[d]}/10)`,
+      fail: v[d] <= t ? `score ${v[d]} <= ${t}` : undefined,
+    });
   }
   for (const f of v.findings ?? [])
     cases.push({
       cls: "ai-review.v2.findings",
       name: `[${f.severity}] ${f.file ?? "general"}`,
-      fail: f.severity === "blocker" || f.severity === "major" ? f.note : undefined,
+      fail:
+        f.severity === "blocker" || f.severity === "major" ? f.note : undefined,
     });
-  cases.push({ cls: "ai-review.v2", name: `verdict: ${v.verdict}`, fail: v.verdict === "fail" ? v.summary : undefined });
+  cases.push({
+    cls: "ai-review.v2",
+    name: `verdict: ${v.verdict}`,
+    fail: v.verdict === "fail" ? v.summary : undefined,
+  });
   const failures = cases.filter((c) => c.fail).length;
   const body = cases
     .map(
       (c) =>
         `    <testcase classname="${xmlEscape(c.cls)}" name="${xmlEscape(c.name)}" time="0">${
-          c.fail ? `\n      <failure message="${xmlEscape(c.fail)}"></failure>` : ""
+          c.fail
+            ? `\n      <failure message="${xmlEscape(c.fail)}"></failure>`
+            : ""
         }\n    </testcase>`,
     )
     .join("\n");
@@ -148,9 +187,24 @@ ${body}
 
 async function main() {
   const verbose = has("--verbose") || has("-v");
-  const diff = loadDiff();
+  const { filtered: diff, dropped } = filterDiff(loadDiff());
+  if (dropped.length) {
+    note(
+      `excluded ${dropped.length} non-code file(s) from review: ${dropped.slice(0, 8).join(", ")}${dropped.length > 8 ? "…" : ""}`,
+    );
+  }
+
+  const files = (diff.match(/^diff --git /gm) || []).length;
+  const added = (diff.match(/^\+(?!\+\+)/gm) || []).length;
+  const removed = (diff.match(/^-(?!--)/gm) || []).length;
+  note(
+    `reviewing ${files} file(s), ${diff ? diff.split("\n").length : 0} diff lines (+${added}/-${removed})…`,
+  );
+
   const timeoutArg = arg("--timeout") ?? process.env.AI_REVIEW_TIMEOUT;
-  const timeoutMs = timeoutArg ? Math.max(1, Number(timeoutArg)) * 1000 : undefined;
+  const timeoutMs = timeoutArg
+    ? Math.max(1, Number(timeoutArg)) * 1000
+    : undefined;
 
   const attemptsArg = arg("--attempts");
   const { verdict, model, degraded, usage } = await reviewDiffV2(diff, {
@@ -160,7 +214,10 @@ async function main() {
     maxAttempts: attemptsArg ? Math.max(1, Number(attemptsArg)) : undefined,
   });
 
-  if (usage) note(`usage: in=${usage.inputTokens ?? "?"} out=${usage.outputTokens ?? "?"}${usage.costUsd != null ? ` cost=$${usage.costUsd}` : ""}`);
+  if (usage)
+    note(
+      `usage: in=${usage.inputTokens ?? "?"} out=${usage.outputTokens ?? "?"}${usage.costUsd != null ? ` cost=$${usage.costUsd}` : ""}`,
+    );
 
   const markdown = toMarkdown(verdict, model, degraded);
   const commentFile = arg("--comment");
@@ -168,7 +225,9 @@ async function main() {
   const junitFile = arg("--junit");
   if (junitFile) writeFileSync(junitFile, toJUnit(verdict, model), "utf8");
 
-  process.stdout.write((has("--json") ? JSON.stringify(verdict, null, 2) : markdown) + "\n");
+  process.stdout.write(
+    (has("--json") ? JSON.stringify(verdict, null, 2) : markdown) + "\n",
+  );
 
   if (verdict.verdict === "fail" && !has("--no-fail")) finish(1);
 }
@@ -185,6 +244,9 @@ function finish(code: number): void {
 }
 
 main().catch((err) => {
-  console.error("AI review v2 failed:", err instanceof Error ? err.message : err);
+  console.error(
+    "AI review v2 failed:",
+    err instanceof Error ? err.message : err,
+  );
   finish(2);
 });

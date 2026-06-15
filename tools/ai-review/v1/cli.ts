@@ -21,7 +21,8 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { reviewDiff } from "./reviewAgent";
-import { REVIEW_DIMENSIONS, type ReviewVerdict } from "./schema";
+import { filterDiff } from "../filterDiff";
+import { REVIEW_DIMENSIONS, type ReviewVerdict } from "../schema";
 
 const USAGE = `Usage:
   npm run review -- --diff <file>     review a diff file
@@ -212,7 +213,12 @@ function xmlEscape(s: string): string {
  * the overall verdict become test cases; a case "fails" when it breaches the DoD.
  */
 function toJUnit(v: ReviewVerdict, model: string, ms: number): string {
-  type Case = { classname: string; name: string; failure?: string; out?: string };
+  type Case = {
+    classname: string;
+    name: string;
+    failure?: string;
+    out?: string;
+  };
   const cases: Case[] = [];
 
   for (const d of REVIEW_DIMENSIONS) {
@@ -221,7 +227,10 @@ function toJUnit(v: ReviewVerdict, model: string, ms: number): string {
     cases.push({
       classname: "ai-review.dimensions",
       name: `${d} (${score}/10)`,
-      failure: score <= threshold ? `score ${score} <= threshold ${threshold}` : undefined,
+      failure:
+        score <= threshold
+          ? `score ${score} <= threshold ${threshold}`
+          : undefined,
     });
   }
   for (const f of v.findings ?? []) {
@@ -247,7 +256,9 @@ function toJUnit(v: ReviewVerdict, model: string, ms: number): string {
       const fail = c.failure
         ? `\n      <failure message="${xmlEscape(c.failure)}"></failure>`
         : "";
-      const out = c.out ? `\n      <system-out>${xmlEscape(c.out)}</system-out>` : "";
+      const out = c.out
+        ? `\n      <system-out>${xmlEscape(c.out)}</system-out>`
+        : "";
       return `${open}${fail}${out}\n    </testcase>`;
     })
     .join("\n");
@@ -264,7 +275,12 @@ ${body}
 async function main() {
   const verbose = has("--verbose") || has("-v");
   const started = Date.now();
-  const diff = loadDiff();
+  const { filtered: diff, dropped } = filterDiff(loadDiff());
+  if (dropped.length) {
+    note(
+      `excluded ${dropped.length} non-code file(s) from review: ${dropped.slice(0, 8).join(", ")}${dropped.length > 8 ? "…" : ""}`,
+    );
+  }
 
   const files = (diff.match(/^diff --git /gm) || []).length;
   const added = (diff.match(/^\+(?!\+\+)/gm) || []).length;
@@ -282,7 +298,9 @@ async function main() {
   }
 
   const timeoutArg = arg("--timeout") ?? process.env.AI_REVIEW_TIMEOUT;
-  const timeoutMs = timeoutArg ? Math.max(1, Number(timeoutArg)) * 1000 : undefined;
+  const timeoutMs = timeoutArg
+    ? Math.max(1, Number(timeoutArg)) * 1000
+    : undefined;
 
   const { verdict, model, degraded } = await reviewDiff(diff, {
     onEvent: verbose ? note : undefined,
@@ -298,7 +316,11 @@ async function main() {
 
   const junitFile = arg("--junit");
   if (junitFile) {
-    writeFileSync(junitFile, toJUnit(verdict, model, Date.now() - started), "utf8");
+    writeFileSync(
+      junitFile,
+      toJUnit(verdict, model, Date.now() - started),
+      "utf8",
+    );
     note(`wrote JUnit report to ${junitFile}`);
   }
 

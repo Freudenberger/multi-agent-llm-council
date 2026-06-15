@@ -1,6 +1,6 @@
 import { createProvider } from "@/providers";
 import { logger } from "@/core/logger";
-import { reviewVerdictSchema, type ReviewVerdict } from "./schema";
+import { reviewVerdictSchema, type ReviewVerdict } from "../schema";
 
 /**
  * AI code-review agent (10xChampion path, M5L2/M5L3).
@@ -34,15 +34,20 @@ const JSON_SHAPE = `{
 const SYSTEM_PROMPT = `${SENTINEL}
 You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.
 Review the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:
-
 1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?
-2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no \`any\`)?
+2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no any)?
 3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.
 4. testRiskCoverage — are new/changed risky paths covered by a test?
-5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.
+5. securitySafety — does the CODE in the diff introduce a concrete vulnerability: missing authorization at the right seam, unvalidated/untrusted input, a leaked secret/credential, or an injection/IDOR/abuse opening?
+
+Scoring rules (read carefully):
+- Score ONLY issues evidenced by the code in this diff. Do NOT invent risks or speculate beyond what the diff shows.
+- securitySafety defaults to 8-10 when the diff contains no concrete code-level vulnerability. Reserve <=5 for a real, demonstrable vulnerability.
+- The choice of LLM model/provider (including free tiers such as "openrouter/free"), CI/tooling/config values, and dependency/version choices are OUT OF SCOPE for securitySafety. Never lower securitySafety or raise a "blocker" because of which model, provider, or free tier is configured — that is not a code vulnerability.
+- A "blocker" finding is only for a genuine, code-level security or correctness defect — not for stylistic, tooling, or model-selection opinions.
+- Some diff entries are NOT application code: documentation (.md), config/permission files (e.g. .claude/settings.local.json), lockfiles, and CI YAML. Their contents are data/permissions, not source — do NOT apply code conventions (Core/UI independence, error taxonomy, "no any") to them or raise code-convention findings about them.
 
 Verdict rule: "fail" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise "pass".
-
 Respond with ONLY a single JSON object, no prose, no code fences, matching:
 ${JSON_SHAPE}`;
 

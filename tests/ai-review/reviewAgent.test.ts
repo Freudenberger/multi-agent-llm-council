@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { reviewDiff } from "../../tools/ai-review/reviewAgent";
+import { reviewDiff } from "../../tools/ai-review/v1/reviewAgent";
 
 /**
  * v1 reviewer — exercised end-to-end through the mock provider (no API key).
