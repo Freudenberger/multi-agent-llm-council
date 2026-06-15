@@ -16,8 +16,9 @@ import { reviewVerdictSchema, type ReviewVerdict } from "./schema";
  */
 
 const MAX_ATTEMPTS = 3;
-const MAX_TOKENS = 2000; // max tokens for the model's response (prompt is counted separately)
+const MAX_TOKENS = 7000; // max tokens for the model's response (prompt is counted separately)
 const SENTINEL = "10X-CODE-REVIEW"; // lets the mock provider recognise a review request
+export const DEFAULT_TIMEOUT_MS = 30_000;
 
 const JSON_SHAPE = `{
   "implementationCorrectness": <1-10>,
@@ -128,8 +129,6 @@ export type ReviewOptions = {
   timeoutMs?: number;
 };
 
-export const DEFAULT_TIMEOUT_MS = 60_000;
-
 function isTimeoutError(e: unknown): boolean {
   const err = e as { name?: string; message?: string };
   return (
@@ -156,7 +155,9 @@ function failClosed(model: string, reason?: string): ReviewResult {
       securitySafety: 1,
       verdict: "fail",
       summary: detail,
-      findings: [{ severity: "blocker", note: reason ?? "Unparseable reviewer output." }],
+      findings: [
+        { severity: "blocker", note: reason ?? "Unparseable reviewer output." },
+      ],
     },
   };
 }
@@ -201,7 +202,10 @@ export async function reviewDiff(
     user: string,
     temperature: number,
     maxTokens: number,
-  ): Promise<{ content: string; model: string; ms: number } | { error: string; ms: number }> {
+  ): Promise<
+    | { content: string; model: string; ms: number }
+    | { error: string; ms: number }
+  > {
     const t0 = performance.now();
     const signal = AbortSignal.timeout(timeoutMs);
     try {
@@ -212,7 +216,11 @@ export async function reviewDiff(
         maxTokens,
         signal,
       });
-      return { content: r.content, model: r.model, ms: Math.round(performance.now() - t0) };
+      return {
+        content: r.content,
+        model: r.model,
+        ms: Math.round(performance.now() - t0),
+      };
     } catch (e) {
       const ms = Math.round(performance.now() - t0);
       // We own this signal, so `signal.aborted` reliably means our timeout fired.
@@ -230,14 +238,19 @@ export async function reviewDiff(
   let lastModel = "unparsed";
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    emit(`attempt ${attempt}/${MAX_ATTEMPTS}: calling provider (timeout ${timeoutMs}ms)…`);
+    emit(
+      `attempt ${attempt}/${MAX_ATTEMPTS}: calling provider (timeout ${timeoutMs}ms)…`,
+    );
     const res = await callProvider(SYSTEM_PROMPT, userMessage, 0.2, MAX_TOKENS);
     if ("error" in res) {
       lastError = res.error;
       emit(
         `attempt ${attempt}: provider error after ${res.ms}ms — ${res.error}${attempt < MAX_ATTEMPTS ? " (retrying)" : ""}`,
       );
-      logger.info("AI review: provider call failed", { attempt, reason: res.error });
+      logger.info("AI review: provider call failed", {
+        attempt,
+        reason: res.error,
+      });
       continue;
     }
     const { content, model, ms } = res;

@@ -25,6 +25,12 @@ Review the supplied unified git diff against EXACTLY these five dimensions, each
 Verdict rule: "fail" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise "pass".
 Return your review using the provided JSON schema.`;
 
+const MAX_OUTPUT_TOKENS = 7000;
+export const DEFAULT_TIMEOUT_MS = 30_000;
+export const DEFAULT_MAX_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 800;
+export const DEFAULT_MODEL = "openrouter/free";
+
 // Native structured-output schema derived from the SAME Zod contract v1 validates against.
 // Strip the `$schema` meta key — providers want a bare JSON Schema object.
 const OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
@@ -50,14 +56,56 @@ export type ReviewV2Options = {
   onEvent?: (message: string) => void;
   timeoutMs?: number;
   model?: string;
+  /** Total attempts before failing closed (default 3). Retries cover transient
+   *  provider errors, truncated JSON, and schema-validation misses. */
+  maxAttempts?: number;
 };
 
-export const DEFAULT_TIMEOUT_MS = 60_000;
-// A structured-output-capable default; override via --model / OPENROUTER_MODEL.
-export const DEFAULT_MODEL = "openai/gpt-4o-mini";
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * Hard wall-clock deadline around an async op. The SDK's own `timeoutMs` only
+ * bounds the HTTP request, not the `getText()` consumption of a streaming
+ * OpenResponses result — so a stalled stream can hang forever. This guarantees
+ * we stop waiting after `ms` and invokes `onTimeout()` to abort the request.
+ */
+function withDeadline<T>(
+  run: () => Promise<T>,
+  ms: number,
+  onTimeout: () => void,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      onTimeout();
+      reject(new Error(`timed out after ${ms}ms`));
+    }, ms);
+    if (typeof timer.unref === "function") timer.unref();
+    run().then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
+  });
+}
+
+/** Provider errors worth retrying: rate limits, 5xx, and transient/network/timeout
+ *  failures (no status code). 4xx like 400/401/403 won't fix on retry. */
+function isRetryableProviderError(e: unknown): boolean {
+  const status = (e as { statusCode?: number })?.statusCode;
+  if (typeof status === "number") return status === 429 || status >= 500;
+  return true; // no HTTP status → network/timeout/generic → retry
+}
 
 /** Deterministic DoD verdict (same rule as v1) — never trust the model's self-reported verdict. */
-export function enforceVerdictRule(v: ReviewVerdict): { verdict: ReviewVerdict; overridden: boolean } {
+export function enforceVerdictRule(v: ReviewVerdict): {
+  verdict: ReviewVerdict;
+  overridden: boolean;
+} {
   const dims = [
     v.implementationCorrectness,
     v.idiomaticity,
@@ -67,8 +115,13 @@ export function enforceVerdictRule(v: ReviewVerdict): { verdict: ReviewVerdict; 
   ];
   const hasBlocker = (v.findings ?? []).some((f) => f.severity === "blocker");
   const computed: ReviewVerdict["verdict"] =
-    dims.some((d) => d <= 3) || v.securitySafety <= 5 || hasBlocker ? "fail" : "pass";
-  return { verdict: { ...v, verdict: computed }, overridden: computed !== v.verdict };
+    dims.some((d) => d <= 3) || v.securitySafety <= 5 || hasBlocker
+      ? "fail"
+      : "pass";
+  return {
+    verdict: { ...v, verdict: computed },
+    overridden: computed !== v.verdict,
+  };
 }
 
 function failClosed(model: string, reason: string): ReviewV2Result {
@@ -96,8 +149,11 @@ export function describeError(e: unknown): string {
   if (err?.body) {
     let detail: unknown = err.body;
     try {
-      const j = JSON.parse(err.body) as { error?: { message?: string } | string };
-      detail = (typeof j.error === "object" ? j.error?.message : j.error) ?? err.body;
+      const j = JSON.parse(err.body) as {
+        error?: { message?: string } | string;
+      };
+      detail =
+        (typeof j.error === "object" ? j.error?.message : j.error) ?? err.body;
     } catch {
       /* body wasn't JSON */
     }
@@ -111,8 +167,13 @@ export function extractUsage(resp: unknown): ReviewV2Usage | undefined {
   const u = (resp as { usage?: Record<string, number> } | undefined)?.usage;
   if (!u) return undefined;
   return {
-    inputTokens: u.inputTokens ?? u.input_tokens ?? u.promptTokens ?? u.prompt_tokens,
-    outputTokens: u.outputTokens ?? u.output_tokens ?? u.completionTokens ?? u.completion_tokens,
+    inputTokens:
+      u.inputTokens ?? u.input_tokens ?? u.promptTokens ?? u.prompt_tokens,
+    outputTokens:
+      u.outputTokens ??
+      u.output_tokens ??
+      u.completionTokens ??
+      u.completion_tokens,
     totalTokens: u.totalTokens ?? u.total_tokens,
     costUsd: u.cost ?? u.totalCost ?? u.total_cost,
   };
@@ -152,58 +213,117 @@ export async function reviewDiffV2(
   }
 
   const client = new OpenRouter({ apiKey });
-  emit(
-    `v2: OpenRouter SDK callModel (model=${model}, native json_schema, timeout ${timeoutMs}ms)…`,
-  );
+  const maxAttempts = Math.max(1, opts.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
+  let lastReason = "unknown error";
 
-  let text: string;
-  let usage: ReviewV2Usage | undefined;
-  try {
-    const result = client.callModel(
-      {
-        model,
-        instructions: SYSTEM_INSTRUCTIONS,
-        input: `Review this unified diff:\n\n${diff}`,
-        temperature: 0.2,
-        maxOutputTokens: 1500,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "code_review_verdict",
-            schema: OUTPUT_JSON_SCHEMA,
-            strict: false,
-          },
-        },
-      },
-      { timeoutMs },
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const lastTry = attempt === maxAttempts;
+    emit(
+      `v2: attempt ${attempt}/${maxAttempts} — callModel (model=${model}, json_schema, timeout ${timeoutMs}ms)…`,
     );
-    text = await result.getText();
+
+    // 1) Call the provider. Retry transient errors (429/5xx/network/timeout).
+    let text: string;
+    let usage: ReviewV2Usage | undefined;
+    const controller = new AbortController();
     try {
-      usage = extractUsage(await result.getResponse());
-    } catch {
-      /* usage is best-effort */
+      const out = await withDeadline(
+        async () => {
+          const result = client.callModel(
+            {
+              model,
+              instructions: SYSTEM_INSTRUCTIONS,
+              input: `Review this unified diff:\n\n${diff}`,
+              temperature: 0.2,
+              maxOutputTokens: MAX_OUTPUT_TOKENS,
+              text: {
+                format: {
+                  type: "json_schema",
+                  name: "code_review_verdict",
+                  schema: OUTPUT_JSON_SCHEMA,
+                  strict: false,
+                },
+              },
+            },
+            { timeoutMs, signal: controller.signal },
+          );
+          const t = await result.getText();
+          let u: ReviewV2Usage | undefined;
+          try {
+            u = extractUsage(await result.getResponse());
+          } catch {
+            /* usage is best-effort */
+          }
+          return { t, u };
+        },
+        timeoutMs,
+        () => controller.abort(),
+      );
+      text = out.t;
+      usage = out.u;
+    } catch (e) {
+      lastReason = describeError(e);
+      const retryable = isRetryableProviderError(e);
+      emit(
+        `v2: attempt ${attempt} provider error — ${lastReason}${retryable && !lastTry ? " (retrying)" : ""}`,
+      );
+      if (retryable && !lastTry) {
+        await delay(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+        continue;
+      }
+      return failClosed(model, lastReason);
     }
-  } catch (e) {
-    const msg = describeError(e);
-    emit(`v2: provider error — ${msg}`);
-    return failClosed(model, msg);
+
+    emit(
+      `v2: attempt ${attempt} received ${text.length} chars${
+        usage
+          ? ` (tokens in/out: ${usage.inputTokens ?? "?"}/${usage.outputTokens ?? "?"}${usage.costUsd != null ? `, $${usage.costUsd}` : ""})`
+          : ""
+      }`,
+    );
+
+    // 2) Parse. Truncated/invalid JSON is retryable (next attempt may complete).
+    let data: unknown;
+    try {
+      data = JSON.parse(safeJson(text));
+    } catch (e) {
+      lastReason = `invalid or truncated JSON (${e instanceof Error ? e.message : String(e)})`;
+      emit(
+        `v2: attempt ${attempt} ${lastReason}${!lastTry ? " (retrying)" : ""}`,
+      );
+      if (!lastTry) {
+        await delay(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+        continue;
+      }
+      return failClosed(
+        model,
+        `${lastReason} — try a model with a larger output budget`,
+      );
+    }
+
+    // 3) Validate against the contract. A schema miss is retryable too.
+    const parsed = reviewVerdictSchema.safeParse(data);
+    if (!parsed.success) {
+      lastReason = `output failed schema validation: ${parsed.error.issues[0]?.message}`;
+      emit(
+        `v2: attempt ${attempt} ${lastReason}${!lastTry ? " (retrying)" : ""}`,
+      );
+      if (!lastTry) {
+        await delay(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+        continue;
+      }
+      return failClosed(model, lastReason);
+    }
+
+    // 4) Success — apply the deterministic DoD gate.
+    const { verdict, overridden } = enforceVerdictRule(parsed.data);
+    if (overridden)
+      emit(`v2: DoD rule overrode model verdict → "${verdict.verdict}"`);
+    emit(`v2: verdict=${verdict.verdict} (attempt ${attempt})`);
+    return { verdict, degraded: false, model, usage };
   }
 
-  emit(
-    `v2: received ${text.length} chars${
-      usage ? ` (tokens in/out: ${usage.inputTokens ?? "?"}/${usage.outputTokens ?? "?"}${usage.costUsd != null ? `, $${usage.costUsd}` : ""})` : ""
-    }`,
-  );
-
-  const parsed = reviewVerdictSchema.safeParse(JSON.parse(safeJson(text)));
-  if (!parsed.success) {
-    return failClosed(model, `output failed schema validation: ${parsed.error.issues[0]?.message}`);
-  }
-
-  const { verdict, overridden } = enforceVerdictRule(parsed.data);
-  if (overridden) emit(`v2: DoD rule overrode model verdict → "${verdict.verdict}"`);
-  emit(`v2: verdict=${verdict.verdict}`);
-  return { verdict, degraded: false, model, usage };
+  return failClosed(model, lastReason); // exhausted retries
 }
 
 /** Native json_schema should yield clean JSON; still strip any stray code fence defensively. */

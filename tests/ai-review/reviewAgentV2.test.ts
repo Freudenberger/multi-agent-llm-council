@@ -109,3 +109,78 @@ describe("ai-review v2 — reviewDiffV2 edge paths (no network)", () => {
     );
   });
 });
+
+// Mock the OpenRouter SDK so we can exercise the response-handling branches
+// without a network call. `vi.hoisted` gives a mutable holder the (hoisted)
+// vi.mock factory can safely reference; `responses` is a queue consumed per call.
+const sdkMock = vi.hoisted(() => ({ responses: [] as string[], hang: false }));
+vi.mock("@openrouter/sdk", () => ({
+  OpenRouter: class {
+    callModel() {
+      const hang = sdkMock.hang;
+      const text = sdkMock.responses.shift() ?? "{}";
+      return {
+        // When `hang` is set, getText never resolves — simulates a stalled stream.
+        getText: () => (hang ? new Promise<string>(() => {}) : Promise.resolve(text)),
+        getResponse: async () => ({ usage: { input_tokens: 1, output_tokens: 2 } }),
+      };
+    }
+  },
+}));
+
+const validVerdict = (over: Partial<ReviewVerdict> = {}) =>
+  JSON.stringify({ ...base, ...over });
+
+describe("ai-review v2 — response handling (mocked SDK)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    sdkMock.responses = [];
+    sdkMock.hang = false;
+  });
+
+  it("enforces a hard wall-clock deadline when the stream stalls", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+    sdkMock.hang = true; // getText never resolves
+    const { verdict, degraded } = await reviewDiffV2("diff --git a/x b/x\n+const a = 1;\n", {
+      maxAttempts: 1,
+      timeoutMs: 50,
+    });
+    expect(degraded).toBe(true);
+    expect(verdict.summary).toMatch(/timed out after 50ms/i);
+  });
+
+  it("fails closed (not throws) on truncated/invalid JSON", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+    sdkMock.responses = ['{ "implementationCorrectness": 8, "findings": [ {']; // cut off
+    const { verdict, degraded } = await reviewDiffV2("diff --git a/x b/x\n+const a = 1;\n", {
+      maxAttempts: 1,
+    });
+    expect(degraded).toBe(true);
+    expect(verdict.verdict).toBe("fail");
+    expect(verdict.summary).toMatch(/invalid or truncated JSON/i);
+  });
+
+  it("parses a valid verdict and applies the deterministic gate", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+    sdkMock.responses = [validVerdict({ securitySafety: 4, verdict: "pass" })]; // <=5 → fail
+    const { verdict, degraded } = await reviewDiffV2("diff --git a/x b/x\n+const a = 1;\n", {
+      maxAttempts: 1,
+    });
+    expect(degraded).toBe(false);
+    expect(verdict.verdict).toBe("fail"); // DoD override
+  });
+
+  it("retries a schema-validation miss and succeeds on a later attempt", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
+    // 1st attempt: missing required `summary` → schema miss; 2nd: valid.
+    sdkMock.responses = [
+      JSON.stringify({ ...base, summary: undefined }),
+      validVerdict({ verdict: "pass" }),
+    ];
+    const { verdict, degraded } = await reviewDiffV2("diff --git a/x b/x\n+const a = 1;\n", {
+      maxAttempts: 3,
+    });
+    expect(degraded).toBe(false);
+    expect(verdict.verdict).toBe("pass");
+  });
+});

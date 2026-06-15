@@ -24,7 +24,7 @@ const USAGE = `Usage:
   npm run review:v2 -- --git [base]      review changes vs a ref (default: origin/main → auto)
   git diff | npm run review:v2           review a piped diff
 
-Flags: --json  --comment <file>  --junit <file>  --timeout <sec>  --model <id>  --no-fail  --verbose|-v
+Flags: --json  --comment <file>  --junit <file>  --timeout <sec>  --model <id>  --attempts <n>  --no-fail  --verbose|-v
 Requires OPENROUTER_API_KEY.
 `;
 
@@ -152,10 +152,12 @@ async function main() {
   const timeoutArg = arg("--timeout") ?? process.env.AI_REVIEW_TIMEOUT;
   const timeoutMs = timeoutArg ? Math.max(1, Number(timeoutArg)) * 1000 : undefined;
 
+  const attemptsArg = arg("--attempts");
   const { verdict, model, degraded, usage } = await reviewDiffV2(diff, {
     onEvent: verbose ? note : undefined,
     timeoutMs,
     model: arg("--model"),
+    maxAttempts: attemptsArg ? Math.max(1, Number(attemptsArg)) : undefined,
   });
 
   if (usage) note(`usage: in=${usage.inputTokens ?? "?"} out=${usage.outputTokens ?? "?"}${usage.costUsd != null ? ` cost=$${usage.costUsd}` : ""}`);
