@@ -1,0 +1,149 @@
+# AI Code Review v2 (10xChampion path) — OpenRouter TypeScript SDK engine.
+#
+# Runs `npm run review:v2` (tools/ai-review/v2), which uses @openrouter/sdk with
+# native json_schema structured output. Unlike v1, v2 has NO mock mode — it needs
+# a real key — so this workflow skips cleanly when OPENROUTER_API_KEY is absent.
+#
+# Evidence for the badge (produced by a real PR run):
+#   1) this workflow + the "review-v2" job in the Actions tab,
+#   2) the job logs (the agent's JSON verdict + token/cost usage),
+#   3) the agent's comment on the PR,
+#   4) the "AI Code Review v2" check run (per-dimension pass/fail, via JUnit).
+#
+# Setup: add an OPENROUTER_API_KEY repo secret, and (recommended) an
+# OPENROUTER_MODEL repo variable set to a structured-output-capable model
+# (e.g. openai/gpt-4o-mini). Free models are flaky and may stall/truncate.
+
+name: AI Code Review v2
+
+on:
+  # Uncomment to review every PR automatically (this is the badge-evidence path):
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Base ref to diff against for manual runs (default: HEAD~1 = the last commit)."
+        required: false
+        default: "HEAD~1"
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+concurrency:
+  group: ai-review-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review-v2:
+    name: AI review (v2 / OpenRouter SDK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need both sides of the diff
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Run AI reviewer v2 on the diff
+        id: review
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # v2 needs a structured-output model; default to a reliable one (free models stall).
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openrouter/free' }}
+        run: |
+          # v2 has no mock fallback — without a key there is nothing to run.
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::warning::OPENROUTER_API_KEY not set — skipping v2 review (v2 has no mock mode; use the v1 workflow for keyless runs)."
+            printf '### ⏭️ AI Code Review v2 skipped\n\n_No `OPENROUTER_API_KEY` secret configured. v2 (OpenRouter SDK) has no mock mode — add the secret, or use the v1 workflow for keyless runs._\n' > review-comment.md
+            echo "verdict=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE='${{ github.event.pull_request.base.sha }}'
+            HEAD='${{ github.event.pull_request.head.sha }}'
+          else
+            BASE="${{ github.event.inputs.base }}"
+            BASE="${BASE:-HEAD~1}"
+            HEAD="HEAD"
+          fi
+          echo "----- diffing ${BASE}...${HEAD} -----"
+          git diff "${BASE}...${HEAD}" > pr.diff || git diff "${BASE}" "${HEAD}" > pr.diff
+          wc -l pr.diff
+
+          if [ ! -s pr.diff ]; then
+            echo "No changes to review (base=${BASE} head=${HEAD})."
+            printf '### ✅ AI Code Review v2 — **PASS**\n\n_No changes to review for this run (base=%s)._\n' "${BASE}" > review-comment.md
+            echo "verdict=pass" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # --no-fail: post the comment even on a "fail" verdict; gate separately below.
+          # --timeout/--attempts bound a flaky provider; --junit feeds the check run.
+          npm run review:v2 -- \
+            --diff pr.diff \
+            --comment review-comment.md \
+            --junit review-junit.xml \
+            --timeout 60 \
+            --attempts 3 \
+            --no-fail \
+            --verbose | tee review.out
+
+          if grep -q '\*\*FAIL\*\*' review-comment.md; then
+            echo "verdict=fail" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=pass" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post review comment
+        if: github.event_name == 'pull_request' && hashFiles('review-comment.md') != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('review-comment.md', 'utf8');
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            // Upsert: keep one rolling v2 comment instead of spamming.
+            const marker = 'AI Code Review v2';
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Publish review as a check run
+        if: always() && hashFiles('review-junit.xml') != ''
+        uses: dorny/test-reporter@v1
+        with:
+          name: AI Code Review v2
+          path: review-junit.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Upload review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-review-v2
+          path: |
+            review-comment.md
+            review-junit.xml
+            review.out
+          if-no-files-found: ignore
+
+      - name: Gate (informational)
+        if: steps.review.outputs.verdict == 'fail'
+        run: |
+          echo "::warning::AI reviewer v2 returned a FAIL verdict — see the PR comment / check run."
+          # Make this a hard gate by switching to: exit 1
