@@ -21,7 +21,14 @@ Review the supplied unified git diff against EXACTLY these five dimensions, each
 2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no any)?
 3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.
 4. testRiskCoverage — are new/changed risky paths covered by a test?
-5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.
+5. securitySafety — does the CODE in the diff introduce a concrete vulnerability: missing authorization at the right seam, unvalidated/untrusted input, a leaked secret/credential, or an injection/IDOR/abuse opening?
+
+Scoring rules (read carefully):
+- Score ONLY issues evidenced by the code in this diff. Do NOT invent risks or speculate beyond what the diff shows.
+- securitySafety defaults to 8-10 when the diff contains no concrete code-level vulnerability. Reserve <=5 for a real, demonstrable vulnerability.
+- The choice of LLM model/provider (including free tiers such as "openrouter/free"), CI/tooling/config values, and dependency/version choices are OUT OF SCOPE for securitySafety. Never lower securitySafety or raise a "blocker" because of which model, provider, or free tier is configured — that is not a code vulnerability.
+- A "blocker" finding is only for a genuine, code-level security or correctness defect — not for stylistic, tooling, or model-selection opinions.
+
 Verdict rule: "fail" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise "pass".
 Return your review using the provided JSON schema.`;
 

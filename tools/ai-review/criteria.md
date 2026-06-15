@@ -19,6 +19,8 @@ These are passed to the agent as its rubric ([reviewAgent.ts](./reviewAgent.ts) 
 
 Security is weighted: a change can be correct and idiomatic and still **fail** on an unguarded authorization path — consistent with the project's own top risk ([docs/test-plan.md](../../docs/test-plan.md) security rows and the IDOR seam tracked in [context/changes/refactor-opportunities/plan.md](../../context/changes/refactor-opportunities/plan.md)).
 
+**Scope of `securitySafety` (to avoid false positives):** it scores only **concrete code-level vulnerabilities evidenced in the diff** — missing authz, unvalidated input, leaked secrets, injection/IDOR/abuse. It defaults to **8–10** when no such vulnerability is present. Engineering/config choices — **which LLM model or provider is used (including free tiers like `openrouter/free`), CI/tooling values, dependency/version picks** — are **out of scope** and must never lower `securitySafety` or raise a `blocker`. The choice of a free model is not a code vulnerability.
+
 ## Why these five
 
 They map 1:1 to where this repo actually breaks (see the architecture analysis in [context/](../../context/)): correctness of the orchestrator, idiomatic Core/UI separation, simplicity (the repo has real magic-string and dead-case debt), test coverage of risky paths, and security (the authorization-by-convention seam). The reviewer is tuned to *this* codebase, not a generic linter.
