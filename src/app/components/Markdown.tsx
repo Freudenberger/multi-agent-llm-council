@@ -36,14 +36,17 @@ export function Markdown({ content }: { content: string }): ReactNode {
     const dataRows = rows.slice(2); // skip header + separator
 
     return (
-      <div key={key} className="overflow-x-auto mb-3">
+      <div
+        key={key}
+        className="overflow-x-auto mb-3 rounded-lg border border-zinc-200 dark:border-zinc-700"
+      >
         <table className="min-w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-zinc-600">
+            <tr className="bg-zinc-100 dark:bg-zinc-800/60">
               {headerCells.map((cell, ci) => (
                 <th
                   key={ci}
-                  className="px-3 py-2 text-left font-semibold text-zinc-200 bg-zinc-800/50"
+                  className="px-3 py-2 text-left font-semibold text-zinc-700 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700 whitespace-nowrap"
                 >
                   {renderInline(cell)}
                 </th>
@@ -54,10 +57,13 @@ export function Markdown({ content }: { content: string }): ReactNode {
             {dataRows.map((row, ri) => (
               <tr
                 key={ri}
-                className="border-b border-zinc-800 hover:bg-zinc-800/30"
+                className="even:bg-zinc-50 dark:even:bg-zinc-800/20 hover:bg-blue-50 dark:hover:bg-zinc-800/40 transition-colors"
               >
                 {row.map((cell, ci) => (
-                  <td key={ci} className="px-3 py-2 text-zinc-300">
+                  <td
+                    key={ci}
+                    className="px-3 py-2 align-top text-zinc-700 dark:text-zinc-300 border-b border-zinc-100 dark:border-zinc-800/70"
+                  >
                     {renderInline(cell)}
                   </td>
                 ))}

@@ -8,7 +8,7 @@ import type {
   FinalReport,
 } from "@/core/types";
 import { useCouncil } from "./CouncilProvider";
-import type { AgentStatus, CouncilPhase } from "./CouncilProvider";
+import type { AgentStatus, AgentRunState, CouncilPhase } from "./CouncilProvider";
 import { Markdown, InlineMarkdown } from "./components/Markdown";
 import { AgentCustomizer } from "./components/AgentCustomizer";
 import { UserMenu } from "./components/UserMenu";
@@ -168,6 +168,7 @@ export default function Home() {
     setCustomAgents,
     agentStatuses,
     phase,
+    peerReviewRun,
     runAnalysis,
     cancelAnalysis,
     loadConversation: handleLoadConversation,
@@ -377,25 +378,39 @@ export default function Home() {
                 availableModels={customizerModels}
               />
 
-              {/* Run Button */}
-              <button
-                type="button"
-                onClick={runAnalysis}
-                disabled={loading || !input.trim()}
-                aria-busy={loading}
-                className="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-medium rounded-lg transition-colors"
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span aria-hidden="true" className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Analyzing...
-                  </span>
-                ) : (
-                  "🏛️ Run Council Analysis"
-                )}
-              </button>
+              {/* Run Buttons: standard two-phase, or the opt-in three-phase
+                  peer-review analysis (specialists → peer ranking → judge). */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={() => runAnalysis()}
+                  disabled={loading || !input.trim()}
+                  aria-busy={loading}
+                  className="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-300 dark:disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-medium rounded-lg transition-colors"
+                >
+                  {loading ? (
+                    <span className="flex items-center gap-2">
+                      <span aria-hidden="true" className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Analyzing...
+                    </span>
+                  ) : (
+                    "🏛️ Run Council Analysis"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runAnalysis({ peerReview: true })}
+                  disabled={loading || !input.trim()}
+                  aria-busy={loading}
+                  title="Specialists also review and rank each other's anonymized responses before the judge synthesizes."
+                  className="w-full sm:w-auto px-8 py-3 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:bg-zinc-100 dark:disabled:bg-zinc-800 disabled:text-zinc-400 text-blue-700 dark:text-blue-300 font-medium rounded-lg border border-blue-600 dark:border-blue-500/50 transition-colors"
+                >
+                  🔍 Run with Peer Review
+                </button>
+              </div>
               <p id="council-input-hint" className="text-xs text-zinc-500">
-                Press Ctrl+Enter to run. Analysis may take 10-30 seconds.
+                Press Ctrl+Enter to run. Peer Review adds an anonymized ranking
+                round before the final synthesis. Analysis may take 10-30 seconds.
               </p>
             </div>
 
@@ -425,7 +440,7 @@ export default function Home() {
                 {error.retryable && (
                   <button
                     type="button"
-                    onClick={runAnalysis}
+                    onClick={() => runAnalysis()}
                     disabled={loading}
                     className="shrink-0 px-3 py-1.5 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-600 rounded-md transition-colors disabled:opacity-50"
                   >
@@ -441,6 +456,7 @@ export default function Home() {
             <CouncilStatus
               agentStatuses={agentStatuses}
               phase={phase}
+              peerReviewRun={peerReviewRun}
               onCancel={cancelAnalysis}
             />
           )}
@@ -467,6 +483,22 @@ export default function Home() {
                   ))}
                 </div>
               </section>
+
+              {/* Peer Review & Ranking (only present for peer-review runs) */}
+              {result.peerReviews && result.peerReviews.length > 0 && (
+                <section>
+                  <h2 className="text-lg font-semibold mb-1">Peer Review &amp; Ranking</h2>
+                  <p className="text-sm text-zinc-500 mb-4">
+                    Each specialist independently evaluated and ranked the
+                    anonymized responses before the final synthesis.
+                  </p>
+                  <div className="grid gap-4">
+                    {result.peerReviews.map((review: AgentResponse) => (
+                      <AgentResponseCard key={`peer-${review.agentId}`} response={review} />
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {/* Final Report */}
               <section>
@@ -508,10 +540,12 @@ export default function Home() {
 function CouncilStatus({
   agentStatuses,
   phase,
+  peerReviewRun,
   onCancel,
 }: {
   agentStatuses: AgentStatus[];
   phase: CouncilPhase;
+  peerReviewRun: boolean;
   onCancel: () => void;
 }) {
   const specialists = agentStatuses.filter((a) => !a.isFinalJudge);
@@ -519,6 +553,15 @@ function CouncilStatus({
   const doneCount = specialists.filter(
     (a) => a.state === "done" || a.state === "error",
   ).length;
+  const specialistsDone = specialists.length > 0 && doneCount === specialists.length;
+  // Peer review runs once all specialists finish; it's done once synthesis begins.
+  const peerReviewState: AgentRunState =
+    phase === "peer-review"
+      ? "running"
+      : phase === "judge" || phase === "done"
+        ? "done"
+        : "pending";
+  const synthLabel = peerReviewRun ? "Phase 3 · Synthesis" : "Phase 2 · Synthesis";
 
   return (
     <div
@@ -550,9 +593,11 @@ function CouncilStatus({
             <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
               {phase === "judge"
                 ? "Synthesizing the final report…"
-                : agentStatuses.length > 0
-                  ? `Specialists analyzing… ${doneCount}/${specialists.length} done`
-                  : "Starting…"}
+                : phase === "peer-review"
+                  ? "Peer review — specialists ranking each other's responses…"
+                  : agentStatuses.length > 0
+                    ? `Specialists analyzing… ${doneCount}/${specialists.length} done`
+                    : "Starting…"}
             </p>
           </div>
         </div>
@@ -586,11 +631,34 @@ function CouncilStatus({
             </div>
           </div>
 
-          {/* Phase 2: Synthesis */}
+          {/* Phase 2: Peer review (only for peer-review runs) */}
+          {peerReviewRun && (
+            <div className="px-4 py-2">
+              <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
+                Phase 2 · Peer Review
+              </p>
+              <PhaseStatusRow
+                label={
+                  peerReviewState === "done"
+                    ? "Specialists ranked the anonymized responses"
+                    : peerReviewState === "running"
+                      ? "Specialists ranking the anonymized responses…"
+                      : "Waiting for specialists to finish…"
+                }
+                state={
+                  peerReviewState === "pending" && specialistsDone
+                    ? "running"
+                    : peerReviewState
+                }
+              />
+            </div>
+          )}
+
+          {/* Synthesis (Phase 2, or Phase 3 when peer review ran) */}
           {judge && (
             <div className="px-4 py-2">
               <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">
-                Phase 2 · Synthesis
+                {synthLabel}
               </p>
               <AgentStatusRow agent={judge} />
             </div>
@@ -638,6 +706,40 @@ function AgentStatusRow({ agent }: { agent: AgentStatus }) {
           ? `${(agent.durationMs / 1000).toFixed(1)}s`
           : label[agent.state]}
       </span>
+    </div>
+  );
+}
+
+/** A single status row for a whole phase (no per-agent breakdown), e.g. peer review. */
+function PhaseStatusRow({
+  label,
+  state,
+}: {
+  label: string;
+  state: AgentRunState;
+}) {
+  const icon: Record<AgentRunState, string> = {
+    pending: "○",
+    running: "⟳",
+    done: "✓",
+    error: "⚠",
+  };
+  const color: Record<AgentRunState, string> = {
+    pending: "text-zinc-400 dark:text-zinc-600",
+    running: "text-blue-500 dark:text-blue-400",
+    done: "text-green-600 dark:text-green-400",
+    error: "text-amber-600 dark:text-amber-400",
+  };
+
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span
+        aria-hidden="true"
+        className={`w-4 text-center shrink-0 ${color[state]} ${state === "running" ? "animate-spin inline-block" : ""}`}
+      >
+        {icon[state]}
+      </span>
+      <span className="text-zinc-700 dark:text-zinc-300 truncate">{label}</span>
     </div>
   );
 }

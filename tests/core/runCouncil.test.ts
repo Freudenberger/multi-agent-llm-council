@@ -422,4 +422,93 @@ describe("runCouncil", () => {
 
     expect(Array.isArray(result.finalReport.recommendations)).toBe(true);
   }, 30000);
+
+  // ─── Peer-review phase (opt-in, per-run) ─────────────────────────
+
+  describe("peer review", () => {
+    it("does not run peer review by default (no peerReviews in result)", async () => {
+      const result = await runCouncil({
+        input: "Should we migrate to a monorepo?",
+        mode: "decision",
+      });
+      expect(result.peerReviews).toBeUndefined();
+    }, 30000);
+
+    it("adds peer reviews when peerReview is requested", async () => {
+      const result = await runCouncil({
+        input: "Should we migrate to a monorepo?",
+        mode: "decision",
+        peerReview: true,
+      });
+
+      expect(result.peerReviews).toBeDefined();
+      expect(result.peerReviews!.length).toBeGreaterThanOrEqual(2);
+      // Every reviewer is one of the run's specialists, and produced content.
+      const specialistIds = new Set(
+        result.agentResponses.map((r) => r.agentId),
+      );
+      for (const review of result.peerReviews!) {
+        expect(specialistIds.has(review.agentId)).toBe(true);
+        expect(review.content.length).toBeGreaterThan(0);
+      }
+    }, 30000);
+
+    it("emits a peer-review phase between specialists and judge", async () => {
+      const events: CouncilProgressEvent[] = [];
+      await runCouncil({
+        input: "Should we ship it?",
+        mode: "decision",
+        peerReview: true,
+        onProgress: (e) => events.push(e),
+      });
+
+      const phases = events
+        .filter((e) => e.type === "phase_started")
+        .map((e) => (e.type === "phase_started" ? e.phase : ""));
+      expect(phases).toContain("specialists");
+      expect(phases).toContain("peer-review");
+      expect(phases).toContain("judge");
+      // Ordering: specialists → peer-review → judge.
+      expect(phases.indexOf("specialists")).toBeLessThan(
+        phases.indexOf("peer-review"),
+      );
+      expect(phases.indexOf("peer-review")).toBeLessThan(
+        phases.indexOf("judge"),
+      );
+    }, 30000);
+
+    it("skips peer review when fewer than 2 specialists succeed", async () => {
+      // Disable all but one specialist → nothing to rank.
+      const result = await runCouncil({
+        input: "Edge case",
+        mode: "decision",
+        peerReview: true,
+        customAgents: {
+          sceptic: {
+            id: "sceptic",
+            name: "Sceptic",
+            role: "Critical",
+            systemPrompt: "Be critical",
+            disabled: true,
+          },
+          "risk-analyst": {
+            id: "risk-analyst",
+            name: "Risk Analyst",
+            role: "Risk",
+            systemPrompt: "Find risks",
+            disabled: true,
+          },
+          pragmatist: {
+            id: "pragmatist",
+            name: "Pragmatist",
+            role: "Practical",
+            systemPrompt: "Be practical",
+            disabled: true,
+          },
+        },
+      });
+
+      expect(result.peerReviews).toBeUndefined();
+    }, 30000);
+  });
 });

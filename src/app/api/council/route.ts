@@ -38,6 +38,8 @@ const requestSchema = z.object({
     "swot",
   ]),
   customAgents: z.record(z.string(), customAgentSchema).optional(),
+  /** Opt into the peer-review/ranking phase for this run (run-level analysis option). */
+  peerReview: z.boolean().optional(),
 });
 
 /** Map error types to HTTP status codes and user-friendly messages */
@@ -188,6 +190,7 @@ export async function POST(request: NextRequest) {
           input: validation.data.input,
           mode: validation.data.mode,
           customAgents: validation.data.customAgents,
+          peerReview: validation.data.peerReview,
           fallbackModels,
           signal: ac.signal,
           onProgress: (event) => send({ kind: "progress", event }),

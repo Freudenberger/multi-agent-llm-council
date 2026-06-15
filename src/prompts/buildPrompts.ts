@@ -37,8 +37,33 @@ Provide your independent analysis from your specific perspective. Be specific, d
 }
 
 /**
- * Builds the system prompt for the final judge.
+ * Builds the system prompt for the peer-review/ranking phase. Each specialist
+ * re-enters as an impartial reviewer of the anonymized responses.
  */
+export function buildPeerReviewSystemPrompt(modeName: string): string {
+  return `You are now acting as an impartial peer reviewer in a ${modeName}.
+
+You will be shown several candidate responses to the same question, each labeled "Response A", "Response B", etc. The responses are anonymized — you are NOT told which one (if any) is your own, so judge purely on merit.
+
+Your task:
+1. Briefly evaluate each response on quality, correctness, reasoning, and usefulness (1-2 sentences each).
+2. Rank the responses from best to worst.
+
+Be objective and specific. Do not reveal or guess authorship. Keep the evaluation proportional to the question.
+
+Format your answer exactly as:
+
+## Evaluations
+- Response A: <short assessment>
+- Response B: <short assessment>
+- [one line per response]
+
+## Ranking
+1. Response <letter> — <one-line reason it ranks highest>
+2. Response <letter> — <reason>
+[continue for every response, best to worst]`;
+}
+
 /**
  * Builds the system prompt for the final judge.
  */
@@ -145,17 +170,57 @@ Be balanced, fair, and thorough. Acknowledge uncertainty where it exists. Do not
 }
 
 /**
+ * Builds the user message for the peer-review/ranking phase.
+ * The reviewer sees the original question and every specialist response
+ * anonymized as "Response A/B/C…" (authorship withheld to prevent bias).
+ */
+export function buildPeerReviewUserMessage(
+  userInput: string,
+  anonymizedResponses: { label: string; content: string }[],
+): string {
+  const responsesText = anonymizedResponses
+    .map((r) => `### ${r.label}\n${r.content}`)
+    .join("\n\n---\n\n");
+
+  return `Original Question/Topic:
+${userInput}
+
+---
+
+Candidate Responses (anonymized):
+
+${responsesText}
+
+---
+
+Evaluate each response and rank them from best to worst using the required format.`;
+}
+
+/**
  * Builds the user message for the final judge.
- * The judge receives the original input plus all specialist responses.
+ * The judge receives the original input plus all specialist responses, and —
+ * when the peer-review phase ran — the specialists' peer evaluations/rankings.
  */
 export function buildJudgeUserMessage(
   modeId: string,
   userInput: string,
   agentResponses: { agentName: string; role: string; content: string }[],
+  peerReviews?: { agentName: string; content: string }[],
 ): string {
   const responsesText = agentResponses
     .map((r) => `### ${r.agentName} (${r.role})\n${r.content}`)
     .join("\n\n---\n\n");
+
+  const peerReviewBlock =
+    peerReviews && peerReviews.length > 0
+      ? `\n\nPeer Evaluations & Rankings (each specialist scored the anonymized responses):
+
+${peerReviews
+  .map((p) => `### ${p.agentName}'s peer review\n${p.content}`)
+  .join("\n\n---\n\n")}
+
+Use these peer rankings to weight your synthesis — favor what peers ranked highest, but preserve valuable minority points the rankings may have undervalued.`
+      : "";
 
   return `Original Question/Topic:
 ${userInput}
@@ -164,7 +229,7 @@ ${userInput}
 
 Specialist Agent Responses:
 
-${responsesText}
+${responsesText}${peerReviewBlock}
 
 ---
 

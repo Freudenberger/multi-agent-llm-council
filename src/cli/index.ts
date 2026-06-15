@@ -34,6 +34,7 @@ Modes:
 
 Options:
   --mode <mode>   Select council mode (default: decision)
+  --peer-review   Add an anonymized peer-review/ranking phase before the judge
   --list-modes    List all available council modes
   --json          Output result as JSON
   --help          Show this help message
@@ -77,6 +78,18 @@ function formatReport(result: Awaited<ReturnType<typeof runCouncil>>): string {
     lines.push(`  [${response.agentName}]`);
     lines.push(`  ${response.content}`);
     lines.push("");
+  }
+
+  if (result.peerReviews && result.peerReviews.length > 0) {
+    lines.push("-".repeat(70));
+    lines.push("PEER REVIEW & RANKING");
+    lines.push("-".repeat(70));
+    for (const review of result.peerReviews) {
+      lines.push("");
+      lines.push(`  [${review.agentName}]`);
+      lines.push(`  ${review.content}`);
+      lines.push("");
+    }
   }
 
   lines.push("-".repeat(70));
@@ -153,6 +166,7 @@ async function main(): Promise<void> {
   let mode: "decision" | "idea" | "criticalReview" | "learning" | "technical" | "answer" =
     "decision";
   let outputJson = false;
+  let peerReview = false;
   let inputText = "";
 
   for (let i = 0; i < args.length; i++) {
@@ -160,6 +174,8 @@ async function main(): Promise<void> {
       mode = args[++i] as typeof mode;
     } else if (args[i] === "--json") {
       outputJson = true;
+    } else if (args[i] === "--peer-review") {
+      peerReview = true;
     } else if (!args[i].startsWith("--")) {
       inputText = args[i];
     }
@@ -175,10 +191,12 @@ async function main(): Promise<void> {
     mode,
     inputLength: inputText.length,
   });
-  console.log(`\n🏛️  Running ${mode} council analysis...\n`);
+  console.log(
+    `\n🏛️  Running ${mode} council analysis${peerReview ? " with peer review" : ""}...\n`,
+  );
 
   try {
-    const result = await runCouncil({ input: inputText, mode });
+    const result = await runCouncil({ input: inputText, mode, peerReview });
 
     if (outputJson) {
       console.log(JSON.stringify(result, null, 2));

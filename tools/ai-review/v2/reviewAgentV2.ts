@@ -4,10 +4,18 @@ import { reviewVerdictSchema, type ReviewVerdict } from "../schema";
 
 /**
  * AI code-review agent — **v2**, built on the official **OpenRouter TypeScript SDK**
- * (`@openrouter/sdk`, the "OpenRouter Agent SDK") via its `callModel` entrypoint.
+ * (`@openrouter/sdk`) via its `callModel` entrypoint.
+ *
+ *  - This is OpenRouter's general-purpose **API SDK**, NOT the separate
+ *    "OpenRouter Agent SDK" (openrouter.ai/docs/agent-sdk) that ships an
+ *    agentic tool-loop with a `maxCost` stop primitive. We use `callModel` as a
+ *    single-shot **scorer** — one model call, structured output, no tool loop.
+ *  - The M5L2 lesson explicitly blesses the single-step scorer as a deliberate
+ *    MVP ("diff in → verdict out, zero tools"), so this is a valid, defensible
+ *    integration — just don't mislabel it as an agent tool-loop SDK.
  *
  * Why v2 exists (vs the in-house v1 in ../reviewAgent.ts):
- *  - Uses a *named SDK as an independent package* (10xDevs M5L2 requirement).
+ *  - Integrates a *named SDK as an independent package* (`@openrouter/sdk`).
  *  - **Native structured output** via `text.format = json_schema` derived from the
  *    same Zod contract — no prompt-and-parse, no repair hack, no free-model JSON drift.
  *  - Captures **usage/cost metrics** from the SDK response (M5L2 "costs, metrics").
@@ -37,7 +45,10 @@ const MAX_OUTPUT_TOKENS = 7000;
 export const DEFAULT_TIMEOUT_MS = 30_000;
 export const DEFAULT_MAX_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 800;
-export const DEFAULT_MODEL = "openrouter/free";
+// A reliable structured-output model by default — free tiers (e.g. "openrouter/free")
+// stall and truncate JSON, which is fatal for the json_schema contract. Override with
+// OPENROUTER_MODEL or --model when needed.
+export const DEFAULT_MODEL = "openai/gpt-4o-mini";
 
 // Native structured-output schema derived from the SAME Zod contract v1 validates against.
 // Strip the `$schema` meta key — providers want a bare JSON Schema object.

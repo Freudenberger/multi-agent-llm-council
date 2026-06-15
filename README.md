@@ -10,24 +10,54 @@ A deliberation system where multiple AI agents collaborate to answer your questi
 
 ## How It Works
 
+Every council mode runs the same engine. By default it's a **two-phase** flow. Optionally — via the **🔍 Run with Peer Review** button — it adds a middle peer-review/ranking phase, making it **three phases**. Peer review is a per-run analysis option, not a separate mode: it works with whichever mode you pick.
+
+### Standard analysis (two phases)
+
 ```
 Your Question
     ↓
 ┌─────────────────────────────────────────┐
-│  Stage 1: Specialist Agents Respond     │
+│  Phase 1: Specialist Agents Respond     │
 │  Each agent provides independent        │
-│  analysis from its unique perspective   │
+│  analysis from its unique perspective,  │
+│  running in parallel                    │
 └─────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────┐
-│  Stage 2: Peer Review & Ranking         │
-│  Agents evaluate each other's responses │
-│  (anonymized to prevent bias)           │
+│  Phase 2: Judge Synthesis               │
+│  A judge agent reads the specialists'   │
+│  responses (anonymized as Response      │
+│  A/B/C to prevent bias) and produces    │
+│  the final report                       │
+└─────────────────────────────────────────┘
+    ↓
+Final Report
+```
+
+### Peer Review analysis (three phases)
+
+```
+Your Question
+    ↓
+┌─────────────────────────────────────────┐
+│  Phase 1: Specialist Agents Respond     │
+│  Each agent provides independent        │
+│  analysis from its unique perspective,  │
+│  running in parallel                    │
 └─────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────┐
-│  Stage 3: Final Synthesis               │
-│  A judge agent produces the final answer│
+│  Phase 2: Peer Review & Ranking         │
+│  Each specialist evaluates and ranks    │
+│  the other responses, shown anonymized  │
+│  as Response A/B/C to prevent bias      │
+└─────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────┐
+│  Phase 3: Judge Synthesis               │
+│  The judge weighs the peer rankings     │
+│  while synthesizing the final report    │
 └─────────────────────────────────────────┘
     ↓
 Final Report
@@ -47,9 +77,10 @@ Final Report
 ## Key Features
 
 - **6 council modes** with purpose-built agent configurations
+- **Optional peer review** — a one-click analysis that adds an anonymized peer-review/ranking phase before the judge, available for any mode
 - **Customizable agents** — edit names, roles, prompts, or swap in agents from other modes
 - **Enable/disable agents** — run with fewer agents for faster results
-- **Transparent process** — inspect every agent's raw response and peer evaluation
+- **Transparent process** — inspect every specialist's raw response and the judge's synthesis
 - **Structured reports** — summary, conclusions, agreements, disagreements, risks, recommendations
 - **CLI support** — run councils from the terminal with the same core engine
 - **Graceful degradation** — continues working even if some agents fail
@@ -66,7 +97,7 @@ cp .env.example .env.local      # LLM_PROVIDER=mock is the default — no key re
 npm run dev                     # open http://localhost:3000
 ```
 
-In the UI: type a question → pick a mode → click **Run Council Analysis**. The mock provider returns deterministic responses so the full Stage 1 → Stage 2 → Stage 3 flow runs end-to-end. No external calls are made.
+In the UI: type a question → pick a mode → click **Run Council Analysis**. The mock provider returns deterministic responses so the full Phase 1 → Phase 2 flow (parallel specialists → judge synthesis) runs end-to-end. No external calls are made.
 
 You can also exercise the same engine from the terminal:
 
@@ -130,7 +161,7 @@ src/
 ├── app/             # Next.js web UI (pages, API routes, components)
 ├── cli/             # Command-line interface
 ├── core/            # Shared council engine (mode-agnostic)
-│   ├── runCouncil.ts   # Orchestrator: stages 1 → 2 → 3
+│   ├── runCouncil.ts   # Orchestrator: phase 1 (specialists) → phase 2 (judge)
 │   ├── types.ts        # Core type definitions
 │   ├── errors.ts       # Error taxonomy
 │   └── logger.ts       # Structured logging
@@ -165,7 +196,7 @@ llm-council/
 │   ├── cli/             # CLI entry point
 │   ├── core/            # Council engine (types, orchestrator, errors)
 │   ├── modes/           # Mode definitions (decision, idea, etc.)
-│   ├── prompts/         # Stage 1/2/3 prompt builders
+│   ├── prompts/         # Specialist + judge prompt builders
 │   └── providers/       # OpenRouter provider + mock for tests
 └── tests/               # Vitest test suite
 ```

@@ -3,6 +3,8 @@ import {
   buildAgentUserMessage,
   buildJudgeSystemPrompt,
   buildJudgeUserMessage,
+  buildPeerReviewSystemPrompt,
+  buildPeerReviewUserMessage,
 } from "@/prompts/buildPrompts";
 import type { CouncilAgent, CouncilModeId } from "@/core/types";
 
@@ -163,6 +165,61 @@ describe("buildPrompts", () => {
       const msg = buildJudgeUserMessage("decision", "q", []);
       expect(msg).toContain("evaluate all specialist responses");
       expect(msg).toContain("final structured report");
+    });
+
+    it("omits the peer-evaluation block when no peer reviews are given", () => {
+      const responses = [{ agentName: "A", role: "R", content: "C1" }];
+      const msg = buildJudgeUserMessage("decision", "q", responses);
+      expect(msg).not.toContain("Peer Evaluations");
+    });
+
+    it("includes the peer-evaluation block when peer reviews are provided", () => {
+      const responses = [{ agentName: "A", role: "R", content: "C1" }];
+      const peerReviews = [
+        { agentName: "A", content: "I rank Response B highest." },
+      ];
+      const msg = buildJudgeUserMessage(
+        "decision",
+        "q",
+        responses,
+        peerReviews,
+      );
+      expect(msg).toContain("Peer Evaluations");
+      expect(msg).toContain("A's peer review");
+      expect(msg).toContain("I rank Response B highest.");
+      expect(msg).toContain("weight your synthesis");
+    });
+  });
+
+  describe("buildPeerReviewSystemPrompt", () => {
+    it("frames the agent as an impartial anonymized reviewer that ranks", () => {
+      const prompt = buildPeerReviewSystemPrompt("Decision Council");
+      expect(prompt).toContain("Decision Council");
+      expect(prompt).toContain("impartial peer reviewer");
+      expect(prompt).toContain("anonymized");
+      expect(prompt).toContain("## Ranking");
+    });
+  });
+
+  describe("buildPeerReviewUserMessage", () => {
+    it("includes the question and every anonymized response label", () => {
+      const msg = buildPeerReviewUserMessage("should we?", [
+        { label: "Response A", content: "first answer" },
+        { label: "Response B", content: "second answer" },
+      ]);
+      expect(msg).toContain("should we?");
+      expect(msg).toContain("Response A");
+      expect(msg).toContain("first answer");
+      expect(msg).toContain("Response B");
+      expect(msg).toContain("second answer");
+    });
+
+    it("does not leak authorship (no agent names, only anonymized labels)", () => {
+      const msg = buildPeerReviewUserMessage("q", [
+        { label: "Response A", content: "content from the optimist" },
+      ]);
+      expect(msg).toContain("Response A");
+      expect(msg).not.toContain("Optimist");
     });
   });
 });

@@ -65,6 +65,8 @@ export type CouncilRun = {
   modeId: CouncilModeId;
   userInput: string;
   agentResponses: AgentResponse[];
+  /** Peer-review/ranking evaluations, present only for peer-review modes. */
+  peerReviews?: AgentResponse[];
   finalReport: FinalReport;
   createdAt: string;
 };
@@ -94,6 +96,14 @@ export type RunCouncilInput = {
    * models. When empty/omitted, those agents use the provider default.
    */
   fallbackModels?: string[];
+  /**
+   * When true, the orchestrator inserts a peer-review/ranking phase between the
+   * specialists and the judge: each specialist evaluates the other (anonymized)
+   * responses and ranks them, and those evaluations are handed to the judge.
+   * Per-run and optional — when omitted/false the run uses the default
+   * two-phase flow. This is a run-level analysis option, not a mode.
+   */
+  peerReview?: boolean;
   /**
    * Optional caller-supplied run id used to correlate logs across the whole
    * request (e.g. the API route generates one and passes it in). When omitted,
@@ -130,7 +140,7 @@ export type CouncilProgressEvent =
       specialists: CouncilAgentMeta[];
       judge: CouncilAgentMeta | null;
     }
-  | { type: "phase_started"; phase: "specialists" | "judge" }
+  | { type: "phase_started"; phase: "specialists" | "peer-review" | "judge" }
   | { type: "agent_started"; agentId: string }
   | { type: "agent_completed"; agentId: string; durationMs: number; ok: boolean };
 
@@ -140,6 +150,11 @@ export type RunCouncilResult = {
   userInput: string;
   /** All specialist agent responses. */
   agentResponses: AgentResponse[];
+  /**
+   * Per-specialist peer-review/ranking evaluations of the anonymized responses.
+   * Present (non-empty) only when the mode enables the peer-review phase.
+   */
+  peerReviews?: AgentResponse[];
   /** The final judge's raw evaluation (for transparency). */
   judgeResponse: AgentResponse | null;
   finalReport: FinalReport;

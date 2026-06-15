@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterDiff } from "../../tools/ai-review/v2/filterDiff";
+import { filterDiff } from "../../tools/ai-review/filterDiff";
 
 function section(path: string): string {
   return `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n+change\n`;

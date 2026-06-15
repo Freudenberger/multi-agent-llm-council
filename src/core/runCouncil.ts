@@ -20,6 +20,8 @@ import {
   buildAgentUserMessage,
   buildJudgeSystemPrompt,
   buildJudgeUserMessage,
+  buildPeerReviewSystemPrompt,
+  buildPeerReviewUserMessage,
 } from "../prompts/buildPrompts";
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -427,6 +429,69 @@ async function runSpecialists(
   return { all: responses, successful, failed, durationMs };
 }
 
+// ─── Phase 1.5: Peer review & ranking (opt-in, per-run) ─────────────
+
+/**
+ * Each specialist whose Phase-1 response succeeded re-enters as an impartial
+ * reviewer. Every reviewer sees the same set of responses anonymized as
+ * "Response A/B/C…" (authorship withheld to prevent bias) and ranks them. The
+ * collected evaluations are handed to the judge so the synthesis can weight the
+ * peer-preferred responses. Runs only when `input.peerReview` is set.
+ */
+async function runPeerReview(
+  mode: ReturnType<typeof getMode>,
+  input: RunCouncilInput,
+  runId: string,
+  provider: ReturnType<typeof createProvider>,
+  successfulSpecialists: AgentResponse[],
+): Promise<{ peerReviews: AgentResponse[]; durationMs: number }> {
+  // Fixed-order anonymization: A, B, C … so every reviewer sees the same labels.
+  const anonymized = successfulSpecialists.map((r, i) => ({
+    label: `Response ${String.fromCharCode(65 + i)}`,
+    content: r.content,
+  }));
+
+  const systemPrompt = buildPeerReviewSystemPrompt(mode.name);
+  const userMessage = buildPeerReviewUserMessage(input.input, anonymized);
+
+  const reviewers = mode.agents.filter((a) =>
+    successfulSpecialists.some((sr) => sr.agentId === a.id),
+  );
+
+  const { result: reviews, durationMs } = await timed(
+    "Phase 1.5: Peer review",
+    () =>
+      Promise.all(
+        reviewers.map((agent) =>
+          runAgent(
+            agent,
+            runId,
+            provider,
+            systemPrompt,
+            userMessage,
+            agent.model,
+            // No per-agent progress events here: the agent rows already show
+            // "done" from Phase 1, and re-emitting would flip them to running.
+            undefined,
+            input.signal,
+          ),
+        ),
+      ),
+    { runId, phase: "peer-review" },
+  );
+
+  const peerReviews = reviews.filter((r) => !r.content.startsWith("[Error:"));
+  logger.info("Peer reviews collected", {
+    runId,
+    reviewers: reviewers.length,
+    successCount: peerReviews.length,
+    errorCount: reviews.length - peerReviews.length,
+    durationMs,
+  });
+
+  return { peerReviews, durationMs };
+}
+
 // ─── Phase 2: Final judge with retry ────────────────────────────────
 
 async function runJudge(
@@ -436,6 +501,7 @@ async function runJudge(
   provider: ReturnType<typeof createProvider>,
   specialistResponses: AgentResponse[],
   successfulSpecialists: AgentResponse[],
+  peerReviews: AgentResponse[],
 ): Promise<{
   finalReport: FinalReport;
   judgeResponse: AgentResponse | null;
@@ -475,6 +541,7 @@ async function runJudge(
       role,
       content,
     })),
+    peerReviews.map((p) => ({ agentName: p.agentName, content: p.content })),
   );
 
   // Raw transcript (opt-in via COUNCIL_RAW_LOG) — the exact request the judge
@@ -689,6 +756,38 @@ export async function runCouncil(
     })),
   });
 
+  // Phase 1.5 (opt-in): peer review & ranking. Needs at least the same number
+  // of successful specialists the judge requires — there's nothing to rank otherwise.
+  let peerReviews: AgentResponse[] = [];
+  let peerReviewDurationMs = 0;
+  const wantsPeerReview =
+    input.peerReview === true &&
+    successfulSpecialists.length >= MIN_SPECIALISTS_FOR_JUDGE;
+  if (wantsPeerReview) {
+    input.onProgress?.({ type: "phase_started", phase: "peer-review" });
+    const pr = await runPeerReview(
+      mode,
+      input,
+      runId,
+      provider,
+      successfulSpecialists,
+    );
+    peerReviews = pr.peerReviews;
+    peerReviewDurationMs = pr.durationMs;
+
+    // Stop here if the user cancelled while reviewers were running.
+    throwIfAborted(input.signal);
+
+    logRawEvent(runId, "peer_reviews_completed", {
+      durationMs: peerReviewDurationMs,
+      reviews: peerReviews.map((r) => ({
+        agentId: r.agentId,
+        agentName: r.agentName,
+        content: r.content,
+      })),
+    });
+  }
+
   // Phase 2
   const {
     finalReport,
@@ -701,6 +800,7 @@ export async function runCouncil(
     provider,
     specialistResponses,
     successfulSpecialists,
+    peerReviews,
   );
 
   // Done
@@ -714,6 +814,8 @@ export async function runCouncil(
     mode: input.mode,
     durationMs: overallDurationMs,
     specialistDurationMs,
+    peerReviewDurationMs,
+    peerReviewCount: peerReviews.length,
     judgeDurationMs,
     specialistCount: specialistResponses.length,
     successCount: successfulSpecialists.length,
@@ -730,6 +832,7 @@ export async function runCouncil(
   logRawEvent(runId, "run_completed", {
     durationMs: overallDurationMs,
     specialistDurationMs,
+    peerReviewDurationMs,
     judgeDurationMs,
     judgeRan: canRunJudge,
     judgeResponse: judgeResponse?.content ?? null,
@@ -741,6 +844,7 @@ export async function runCouncil(
     modeId: input.mode,
     userInput: input.input,
     agentResponses: specialistResponses,
+    peerReviews: peerReviews.length > 0 ? peerReviews : undefined,
     judgeResponse,
     finalReport,
     createdAt: new Date().toISOString(),

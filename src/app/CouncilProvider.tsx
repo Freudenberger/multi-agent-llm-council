@@ -37,6 +37,7 @@ export type AgentStatus = CouncilAgentMeta & {
 export type CouncilPhase =
   | "idle"
   | "specialists"
+  | "peer-review"
   | "judge"
   | "done"
   | "cancelled";
@@ -58,7 +59,10 @@ type CouncilContextValue = {
   agentStatuses: AgentStatus[];
   /** Current run phase. */
   phase: CouncilPhase;
-  runAnalysis: () => Promise<void>;
+  /** Whether the current/most-recent run includes the peer-review phase. */
+  peerReviewRun: boolean;
+  /** Run the council. Pass `{ peerReview: true }` to add the peer-review phase. */
+  runAnalysis: (opts?: { peerReview?: boolean }) => Promise<void>;
   /** Cancel the in-flight run (aborts the request and stops the server). */
   cancelAnalysis: () => void;
   loadConversation: (conversation: RunCouncilResult) => void;
@@ -136,6 +140,7 @@ export function CouncilProvider({ children }: { children: ReactNode }) {
   );
   const [agentStatuses, setAgentStatuses] = useState<AgentStatus[]>([]);
   const [phase, setPhase] = useState<CouncilPhase>("idle");
+  const [peerReviewRun, setPeerReviewRun] = useState(false);
 
   // The in-flight request's abort controller, so cancelAnalysis can stop it.
   const abortRef = useRef<AbortController | null>(null);
@@ -144,7 +149,7 @@ export function CouncilProvider({ children }: { children: ReactNode }) {
     abortRef.current?.abort();
   }, []);
 
-  const runAnalysis = useCallback(async () => {
+  const runAnalysis = useCallback(async (opts?: { peerReview?: boolean }) => {
     const validationError = validateInput(input);
     if (validationError) {
       setInputError(validationError);
@@ -156,6 +161,7 @@ export function CouncilProvider({ children }: { children: ReactNode }) {
     setResult(null);
     setAgentStatuses([]);
     setPhase("idle");
+    setPeerReviewRun(opts?.peerReview ?? false);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -164,6 +170,9 @@ export function CouncilProvider({ children }: { children: ReactNode }) {
       const body: Record<string, unknown> = { input: input.trim(), mode };
       if (Object.keys(customAgents).length > 0) {
         body.customAgents = customAgents;
+      }
+      if (opts?.peerReview) {
+        body.peerReview = true;
       }
 
       const response = await fetch("/api/council", {
@@ -268,6 +277,7 @@ export function CouncilProvider({ children }: { children: ReactNode }) {
     setError(null);
     setAgentStatuses([]);
     setPhase("idle");
+    setPeerReviewRun(!!conversation.peerReviews?.length);
   }, []);
 
   return (
@@ -287,6 +297,7 @@ export function CouncilProvider({ children }: { children: ReactNode }) {
         setCustomAgents,
         agentStatuses,
         phase,
+        peerReviewRun,
         runAnalysis,
         cancelAnalysis,
         loadConversation,

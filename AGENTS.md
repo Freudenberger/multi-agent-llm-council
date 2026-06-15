@@ -101,7 +101,7 @@ src/
 
 These files contain critical orchestration logic — modify with extreme care:
 
-- `src/core/runCouncil.ts` — the main workflow (Phase 1: specialists, Phase 2: judge with retry)
+- `src/core/runCouncil.ts` — the main workflow (Phase 1: specialists → optional Phase 1.5: peer review/ranking → Phase 2: judge with retry)
 - `src/providers/openRouterProvider.ts` — retry logic with exponential backoff + AbortController timeout
 - `src/core/errors.ts` — error type hierarchy
 
@@ -128,7 +128,7 @@ These files contain critical orchestration logic — modify with extreme care:
 3. **Per-agent model selection** — each agent can use a different OpenRouter model. A user-level allow-list (`User.preferredModels`, passed to `runCouncil` as `fallbackModels`) randomly assigns a model to any agent without an explicit one; explicit per-agent models always take precedence.
 4. **Judge retry** — final judge retries up to 2 times on empty/error responses
 5. **Graceful degradation** — if agents fail, fallback report generated from successful responses
-6. **Anonymized peer review** — Stage 2 labels responses as "Response A, B, C" to prevent bias
+6. **Optional peer-review phase** — a per-run flag (`RunCouncilInput.peerReview`, surfaced as the "Run with Peer Review" button / CLI `--peer-review`) inserts Phase 1.5 between specialists and judge: each specialist evaluates and ranks the other responses, anonymized as "Response A/B/C" to prevent bias, and the rankings are handed to the judge. It is a run-level analysis option, **not** a mode — it works with any mode. When off, the run is the default two-phase flow.
 7. **Streaming + cancellation** — `POST /api/council` streams NDJSON progress events; `runCouncil` takes `onProgress` (live per-agent status) and an `AbortSignal` (threaded into provider `fetch`) so a run can be cancelled and actually stops in-flight. Cancellation surfaces as `CouncilAbortedError` (never retried).
 
 ## Adding a New Council Mode
