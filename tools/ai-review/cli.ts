@@ -12,6 +12,7 @@
  *   --git [base]      run `git diff <base>...HEAD` (default base: origin/main)
  *   --json            print only the JSON verdict (for piping)
  *   --comment <file>  also write a Markdown PR-comment body to <file>
+ *   --junit <file>    also write a JUnit XML report (for GitHub Actions check runs)
  *   --no-fail         always exit 0 (don't gate on a "fail" verdict)
  *
  * Exit code: 1 when the verdict is "fail" (so CI can gate), unless --no-fail.
@@ -26,7 +27,7 @@ const USAGE = `Usage:
   npm run review -- --git [base]      review working changes vs a ref (default: origin/main)
   git diff | npm run review           review a piped diff
   
-Flags: --json  --comment <file>  --no-fail  --verbose|-v
+Flags: --json  --comment <file>  --junit <file>  --no-fail  --verbose|-v
 `;
 
 /**
@@ -195,6 +196,70 @@ function note(msg: string): void {
   process.stderr.write(`[ai-review] ${msg}\n`);
 }
 
+function xmlEscape(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+/**
+ * Render the verdict as a JUnit XML report so GitHub Actions can surface it as a
+ * check run (via dorny/test-reporter). Each scored dimension, each finding, and
+ * the overall verdict become test cases; a case "fails" when it breaches the DoD.
+ */
+function toJUnit(v: ReviewVerdict, model: string, ms: number): string {
+  type Case = { classname: string; name: string; failure?: string; out?: string };
+  const cases: Case[] = [];
+
+  for (const d of REVIEW_DIMENSIONS) {
+    const score = v[d];
+    const threshold = d === "securitySafety" ? 5 : 3; // DoD thresholds
+    cases.push({
+      classname: "ai-review.dimensions",
+      name: `${d} (${score}/10)`,
+      failure: score <= threshold ? `score ${score} <= threshold ${threshold}` : undefined,
+    });
+  }
+  for (const f of v.findings ?? []) {
+    const failed = f.severity === "blocker" || f.severity === "major";
+    cases.push({
+      classname: "ai-review.findings",
+      name: `[${f.severity}] ${f.file ?? "general"}`,
+      failure: failed ? f.note : undefined,
+      out: f.note,
+    });
+  }
+  cases.push({
+    classname: "ai-review",
+    name: `verdict: ${v.verdict}`,
+    failure: v.verdict === "fail" ? v.summary : undefined,
+  });
+
+  const failures = cases.filter((c) => c.failure).length;
+  const t = (ms / 1000).toFixed(2);
+  const body = cases
+    .map((c) => {
+      const open = `    <testcase classname="${xmlEscape(c.classname)}" name="${xmlEscape(c.name)}" time="0">`;
+      const fail = c.failure
+        ? `\n      <failure message="${xmlEscape(c.failure)}"></failure>`
+        : "";
+      const out = c.out ? `\n      <system-out>${xmlEscape(c.out)}</system-out>` : "";
+      return `${open}${fail}${out}\n    </testcase>`;
+    })
+    .join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="AI Code Review" tests="${cases.length}" failures="${failures}" time="${t}">
+  <testsuite name="AI Code Review (${xmlEscape(model)})" tests="${cases.length}" failures="${failures}" time="${t}">
+${body}
+  </testsuite>
+</testsuites>
+`;
+}
+
 async function main() {
   const verbose = has("--verbose") || has("-v");
   const started = Date.now();
@@ -225,6 +290,12 @@ async function main() {
 
   const commentFile = arg("--comment");
   if (commentFile) writeFileSync(commentFile, markdown, "utf8");
+
+  const junitFile = arg("--junit");
+  if (junitFile) {
+    writeFileSync(junitFile, toJUnit(verdict, model, Date.now() - started), "utf8");
+    note(`wrote JUnit report to ${junitFile}`);
+  }
 
   if (has("--json")) {
     process.stdout.write(JSON.stringify(verdict, null, 2) + "\n");
