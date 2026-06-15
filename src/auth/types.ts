@@ -37,3 +37,23 @@ export type UserPublic = {
   email: string;
   name: string;
 };
+
+/**
+ * User storage interface.
+ * Implementations: localUserStorage (JSON file) and supabaseUserStorage (PostgreSQL).
+ * Selected at runtime by the DB_PROVIDER env var (see ./userStorage).
+ */
+export type UserStorage = {
+  findByEmail(email: string): Promise<User | null>;
+  findById(id: string): Promise<User | null>;
+  create(user: User): Promise<void>;
+  getAll(): Promise<User[]>;
+  updateProviderSettings(
+    userId: string,
+    providerSettings: ProviderSettings,
+  ): Promise<User | null>;
+  updatePreferredModels(
+    userId: string,
+    preferredModels: string[],
+  ): Promise<User | null>;
+};

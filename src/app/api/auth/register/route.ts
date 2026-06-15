@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const { name, email, password } = parsed.data;
 
     // Check if user already exists
-    const existing = userStorage.findByEmail(email);
+    const existing = await userStorage.findByEmail(email);
     if (existing) {
       return NextResponse.json(
         { error: "An account with this email already exists" },
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
     };
 
-    userStorage.create(user);
+    await userStorage.create(user);
 
     logger.info("User registered", { id: user.id, email: user.email });
 

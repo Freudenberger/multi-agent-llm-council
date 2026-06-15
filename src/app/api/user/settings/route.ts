@@ -48,7 +48,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = userStorage.findById(session.user.id);
+  const user = await userStorage.findById(session.user.id);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -83,7 +83,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = userStorage.findById(session.user.id);
+  const user = await userStorage.findById(session.user.id);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -116,7 +116,7 @@ export async function PUT(request: NextRequest) {
       mergedSettings[providerId] = setting as ProviderSetting;
     }
 
-    const updated = userStorage.updateProviderSettings(
+    const updated = await userStorage.updateProviderSettings(
       session.user.id,
       mergedSettings,
     );
@@ -135,7 +135,7 @@ export async function PUT(request: NextRequest) {
 
   // Persist preferred models when supplied (empty array clears them)
   if (parsed.data.preferredModels) {
-    const updated = userStorage.updatePreferredModels(
+    const updated = await userStorage.updatePreferredModels(
       session.user.id,
       parsed.data.preferredModels,
     );
@@ -165,7 +165,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const user = userStorage.findById(session.user.id);
+  const user = await userStorage.findById(session.user.id);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const user = userStorage.findById(session.user.id);
+  const user = await userStorage.findById(session.user.id);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }

@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   let fallbackModels: string[] | undefined;
   if (session?.user?.id) {
-    const user = userStorage.findById(session.user.id);
+    const user = await userStorage.findById(session.user.id);
     fallbackModels = user?.preferredModels;
   }
 

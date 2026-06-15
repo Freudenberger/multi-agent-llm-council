@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const user = userStorage.findById(session.user.id);
+  const user = await userStorage.findById(session.user.id);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }

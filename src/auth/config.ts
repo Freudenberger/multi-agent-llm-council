@@ -22,7 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null;
 
         const { email, password } = parsed.data;
-        const user = userStorage.findByEmail(email);
+        const user = await userStorage.findByEmail(email);
         if (!user) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
