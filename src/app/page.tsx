@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import type {
   CouncilModeId,
   AgentResponse,
@@ -304,6 +305,15 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {session?.user && (
+              <Link
+                href="/discuss"
+                className="px-3 py-2 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                title="Open the live Agent Roundtable"
+              >
+                💬 Roundtable
+              </Link>
+            )}
             <ThemeToggle />
             <HistorySidebar onLoad={handleLoadConversation} currentResultId={result?.id ?? null} />
             <UserMenu />
@@ -808,7 +818,17 @@ function AgentResponseCard({ response }: { response: AgentResponse }) {
         <div className="flex items-center gap-3">
           <span aria-hidden="true" className="text-lg">🤖</span>
           <div>
-            <div className="font-medium text-sm">{response.agentName}</div>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-sm">{response.agentName}</span>
+              {response.model && (
+                <span
+                  className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[10px] text-purple-600 dark:text-purple-300"
+                  title="Model used for this response"
+                >
+                  {response.model}
+                </span>
+              )}
+            </div>
             <div className="text-xs text-zinc-500 dark:text-zinc-400">
               <span aria-hidden="true">Confidence: {"⭐".repeat(response.confidence)}</span>
               <span className="sr-only">Confidence: {response.confidence} of 5</span>

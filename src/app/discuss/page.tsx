@@ -1,8 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Markdown } from "../components/Markdown";
+import { ThemeToggle } from "../components/ThemeToggle";
+import { UserMenu } from "../components/UserMenu";
 import {
   getDiscussionPersonas,
   getSummarizerPersonas,
@@ -31,7 +35,80 @@ type Phase = "idle" | "running" | "done" | "cancelled" | "error";
 
 type UiError = { title: string; message: string };
 
+/** Distinct model ids used across the turns (and summary), in first-seen order. */
+function distinctModels(
+  turns: DiscussionTurn[],
+  summary: DiscussionSummary | null,
+): string[] {
+  const seen: string[] = [];
+  for (const t of [...turns, ...(summary ? [summary] : [])]) {
+    if (t.model && !seen.includes(t.model)) seen.push(t.model);
+  }
+  return seen;
+}
+
+/** Renders the current discussion (partial or complete) as a Markdown document. */
+function buildMarkdown(
+  topic: string,
+  participants: CouncilAgentMeta[],
+  rounds: number,
+  turns: DiscussionTurn[],
+  summary: DiscussionSummary | null,
+): string {
+  const lines: string[] = ["# Agent Roundtable", ""];
+  lines.push(`**Topic:** ${topic}`, "");
+  if (participants.length > 0) {
+    lines.push(`**Participants:** ${participants.map((p) => p.name).join(", ")}`);
+  }
+  lines.push(`**Rounds:** ${rounds}`);
+  const models = distinctModels(turns, summary);
+  if (models.length > 0) lines.push(`**Models used:** ${models.join(", ")}`);
+  lines.push("", "---", "");
+
+  let currentRound = 0;
+  for (const t of turns) {
+    if (t.round !== currentRound) {
+      currentRound = t.round;
+      lines.push(`## Round ${t.round}`, "");
+    }
+    lines.push(`### ${t.agentName} _(${t.model})_`, "", t.content, "");
+  }
+
+  if (summary) {
+    lines.push(
+      "---",
+      "",
+      `## Summary — ${summary.agentName} _(${summary.model})_`,
+      "",
+      summary.content,
+      "",
+    );
+  }
+  return lines.join("\n");
+}
+
+/** Lowercase-kebab slug for the download filename, derived from the topic. */
+function slugify(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 50) || "discussion"
+  );
+}
+
 export default function DiscussPage() {
+  const { status } = useSession();
+  const router = useRouter();
+
+  // The roundtable is for signed-in users only — bounce anyone else to login.
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
+
   const personas = useMemo(() => getDiscussionPersonas(), []);
   const summarizers = useMemo(() => getSummarizerPersonas(), []);
 
@@ -108,6 +185,19 @@ export default function DiscussPage() {
       return everyCollapsed ? new Set() : new Set(turns.map((t) => t.index));
     });
   }, [turns]);
+
+  const downloadMarkdown = useCallback(() => {
+    const md = buildMarkdown(topic.trim(), participants, runRounds, turns, summary);
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `roundtable-${slugify(topic)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [topic, participants, runRounds, turns, summary]);
 
   const cancel = useCallback(() => abortRef.current?.abort(), []);
 
@@ -270,26 +360,55 @@ export default function DiscussPage() {
       : 0;
   const allCollapsed =
     turns.length > 0 && turns.every((t) => collapsed.has(t.index));
+  const modelsUsed = distinctModels(turns, summary);
+
+  // Don't render the roundtable to logged-out users — the effect above
+  // redirects them; show a neutral placeholder until the session resolves.
+  if (status !== "authenticated") {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-16 text-center text-sm text-neutral-400">
+        {status === "loading" ? "Loading…" : "Redirecting to sign in…"}
+      </main>
+    );
+  }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <header className="mb-6">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold">Agent Roundtable</h1>
-          <Link
-            href="/"
-            className="text-sm text-neutral-400 hover:text-neutral-200"
-          >
-            ← Back to Council
-          </Link>
+    <>
+      <header className="border-b border-zinc-200 dark:border-zinc-800 px-6 py-4">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <img src="/icon.png" alt="" className="w-12 h-12 rounded-md" />
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">
+                Agent Roundtable
+              </h1>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                Watch a panel of AI agents debate your topic, live
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="px-3 py-2 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              title="Back to the Council"
+            >
+              ← Council
+            </Link>
+            <ThemeToggle />
+            <UserMenu />
+          </div>
         </div>
-        <p className="mt-1 text-sm text-neutral-400">
-          Pick a panel of agents and watch them debate your topic back-and-forth,
-          live. The conversation runs for a fixed number of rounds.
-        </p>
       </header>
 
-      <section className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4">
+      <main className="mx-auto max-w-3xl px-4 py-8">
+        <p className="mb-4 text-sm text-neutral-400">
+          Pick a panel of agents and watch them debate your topic
+          back-and-forth, live. The conversation runs for a fixed number of
+          rounds, then an optional summarizer wraps it up.
+        </p>
+
+        <section className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4">
         <div>
           <label className="mb-1 block text-sm font-medium">Topic</label>
           <textarea
@@ -457,16 +576,31 @@ export default function DiscussPage() {
       {(turns.length > 0 || speakingName) && (
         <section className="mt-6 space-y-3">
           {turns.length > 0 && (
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-300">
-                Conversation
-              </h2>
-              <button
-                onClick={toggleAll}
-                className="text-xs text-neutral-400 hover:text-neutral-200"
-              >
-                {allCollapsed ? "Expand all" : "Collapse all"}
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h2 className="text-sm font-semibold text-neutral-300">
+                  Conversation
+                </h2>
+                {modelsUsed.length > 0 && (
+                  <span className="text-[11px] text-neutral-500">
+                    Models: {modelsUsed.join(", ")}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={downloadMarkdown}
+                  className="text-xs text-neutral-400 hover:text-neutral-200"
+                >
+                  ↓ Download .md
+                </button>
+                <button
+                  onClick={toggleAll}
+                  className="text-xs text-neutral-400 hover:text-neutral-200"
+                >
+                  {allCollapsed ? "Expand all" : "Collapse all"}
+                </button>
+              </div>
             </div>
           )}
 
@@ -491,8 +625,16 @@ export default function DiscussPage() {
                       {turn.agentName}
                     </span>
                   </span>
-                  <span className="text-[11px] text-neutral-500">
-                    Round {turn.round}
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[10px] text-purple-300"
+                      title="Model used for this turn"
+                    >
+                      {turn.model}
+                    </span>
+                    <span className="text-[11px] text-neutral-500">
+                      Round {turn.round}
+                    </span>
                   </span>
                 </button>
                 {!isCollapsed && (
@@ -532,8 +674,16 @@ export default function DiscussPage() {
             aria-expanded={!summaryCollapsed}
             className="flex w-full items-center justify-between gap-2 text-left"
           >
-            <span className="text-sm font-semibold uppercase tracking-wide text-neutral-300">
-              Summary · {summary.agentName}
+            <span className="flex items-center gap-2">
+              <span className="text-sm font-semibold uppercase tracking-wide text-neutral-300">
+                Summary · {summary.agentName}
+              </span>
+              <span
+                className="rounded bg-purple-500/15 px-1.5 py-0.5 text-[10px] text-purple-300"
+                title="Model used for the summary"
+              >
+                {summary.model}
+              </span>
             </span>
             <span className="text-[11px] text-neutral-500">
               {summaryCollapsed ? "▸" : "▾"}
@@ -550,6 +700,7 @@ export default function DiscussPage() {
           )}
         </section>
       )}
-    </main>
+      </main>
+    </>
   );
 }

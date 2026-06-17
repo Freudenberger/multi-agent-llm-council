@@ -79,6 +79,8 @@ describe("runDiscussion", () => {
       expect(turn.index).toBe(i);
       expect(turn.ok).toBe(true);
       expect(turn.content.length).toBeGreaterThan(0);
+      // Each turn records the resolved model (mock provider here).
+      expect(turn.model).toBe("mock-provider");
     });
   });
 
@@ -105,6 +107,7 @@ describe("runDiscussion", () => {
     expect(result.summary?.agentId).toBe("final-judge");
     expect(result.summary?.ok).toBe(true);
     expect(result.summary?.content.length).toBeGreaterThan(0);
+    expect(result.summary?.model).toBe("mock-provider");
     // The summary is not one of the discussion turns.
     expect(result.turns).toHaveLength(2);
   });

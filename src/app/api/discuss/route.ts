@@ -121,13 +121,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Reuse the signed-in user's preferred models as the per-agent fallback list.
+  // The roundtable is restricted to signed-in users.
   const session = await auth();
-  let fallbackModels: string[] | undefined;
-  if (session?.user?.id) {
-    const user = await userStorage.findById(session.user.id);
-    fallbackModels = user?.preferredModels;
+  if (!session?.user?.id) {
+    log.info("API request rejected — unauthenticated");
+    return NextResponse.json(
+      {
+        error: "Authentication required",
+        message: "Please sign in to use the Agent Roundtable.",
+        type: "unauthorized",
+      },
+      { status: 401 },
+    );
   }
+
+  // Reuse the signed-in user's preferred models as the per-agent fallback list.
+  const user = await userStorage.findById(session.user.id);
+  const fallbackModels: string[] | undefined = user?.preferredModels;
 
   // Stream progress + the final result as NDJSON, one JSON object per line:
   //   { kind: "progress", event }  — live discussion events (turn-by-turn)

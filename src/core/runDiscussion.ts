@@ -235,6 +235,7 @@ async function runTurn(
         content: degenerate
           ? `[${agent.name} had no substantive response this turn.]`
           : result.content,
+        model: result.model,
         ok: !degenerate,
       },
       durationMs,
@@ -277,6 +278,7 @@ async function runTurn(
         agentId: agent.id,
         agentName: agent.name,
         content: `[${agent.name} was unable to respond this turn.]`,
+        model: agent.model ?? "unknown",
         ok: false,
       },
       durationMs,
@@ -362,6 +364,7 @@ async function runSummary(
         content: degenerate
           ? `[${agent.name} was unable to summarize the discussion.]`
           : result.content,
+        model: result.model,
         ok: !degenerate,
       },
       durationMs,
@@ -397,6 +400,7 @@ async function runSummary(
         agentId: agent.id,
         agentName: agent.name,
         content: `[${agent.name} was unable to summarize the discussion.]`,
+        model: agent.model ?? "unknown",
         ok: false,
       },
       durationMs,

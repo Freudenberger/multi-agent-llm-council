@@ -48,6 +48,12 @@ export type AgentResponse = {
   agentName: string;
   content: string;
   confidence: number;
+  /**
+   * Resolved model that produced this response (e.g. "mock-provider"). Optional
+   * for backward compatibility with conversations saved before models were
+   * recorded.
+   */
+  model?: string;
 };
 
 export type FinalReport = {
@@ -181,6 +187,8 @@ export type DiscussionSummary = {
   agentId: string;
   agentName: string;
   content: string;
+  /** Resolved model that produced the summary (e.g. "mock-provider"). */
+  model: string;
   /** False when the summarizer failed and `content` is a placeholder. */
   ok: boolean;
 };
@@ -194,6 +202,8 @@ export type DiscussionTurn = {
   agentId: string;
   agentName: string;
   content: string;
+  /** Resolved model that produced this turn (e.g. "mock-provider"). */
+  model: string;
   /** False when the agent's turn failed and `content` is a placeholder. */
   ok: boolean;
 };

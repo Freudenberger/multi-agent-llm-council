@@ -71,6 +71,7 @@ Each agent can be assigned a different LLM model from the list of free OpenRoute
 - Falls back to text input if models fail to load
 - Per-agent model override: each agent gets its own provider instance with the selected model
 - Unspecified agents use the default `openrouter/free` model
+- **Resolved model in results:** each response records the model that actually produced it (`AgentResponse.model`), shown as a purple badge on every Individual Agent Response and Peer Review card — so you can see which model each agent (including randomly-assigned fallbacks) ended up using.
 
 ### 6. Save, Load, and Export Council Sessions
 
@@ -176,6 +177,8 @@ A hidden, unlinked page at `/discuss` where a small panel of agents debate a top
 - Each completed turn streams to the page as it finishes, so the conversation appears to unfold in real time. A "… is thinking" indicator shows the agent whose turn is in flight.
 - **Progress indicator:** a progress bar (`role="progressbar"`) tracks completed vs. expected turns (panel size × rounds) and shows the current round (`Round X of Y`), switching to "Summarizing…" / "Discussion complete" / "Stopped" as the run advances.
 - **Collapse/expand:** each turn bubble (and the summary panel) can be collapsed/expanded individually via its header, plus an **Expand all / Collapse all** toggle for the whole conversation — useful for scanning a long roundtable.
+- **Model transparency:** each turn and the summary record the resolved model (`DiscussionTurn.model` / `DiscussionSummary.model`), shown as a small purple badge per message and a deduped "Models: …" line in the conversation header.
+- **Download as Markdown:** a "↓ Download .md" button exports the current (partial or complete) discussion — topic, participants, rounds, models used, every turn grouped by round, and the summary — as a `roundtable-<topic-slug>.md` file.
 - **Optional summarizer:** the user can pick a final-judge/synthesizer persona (via `getSummarizerPersonas()`) to distill the whole transcript into one user-facing summary after the rounds finish — or choose "No summary". Surfaced as `RunDiscussionResult.summary` (a `DiscussionSummary`, omitted when none was selected) and `summary_started` / `summary_completed` progress events, rendered in its own panel below the conversation.
 - **Degenerate-reply retry:** turns (and the summary) whose model reply is empty, trivially short, or a bare label/classification line (e.g. `User Safety: safe`) are detected by `isDegenerateResponse` and re-generated up to twice with a nudging reminder; a persistently unusable reply is recorded as an `ok: false` placeholder rather than polluting the transcript.
 

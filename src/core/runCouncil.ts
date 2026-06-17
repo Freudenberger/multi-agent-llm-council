@@ -336,6 +336,7 @@ async function runAgent(
       agentName: agent.name,
       content: result.content,
       confidence: 4,
+      model: result.model,
     };
   } catch (error) {
     const agentMs = Math.round(performance.now() - agentStart);
@@ -375,6 +376,7 @@ async function runAgent(
       agentName: agent.name,
       content: `[Error: ${agent.name} failed to generate a response. ${errorMessage}]`,
       confidence: 1,
+      model: model ?? "unknown",
     };
   }
 }
