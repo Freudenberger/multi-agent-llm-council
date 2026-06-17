@@ -14,11 +14,13 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── council/route.ts   # POST /api/council — main analysis endpoint
+│   │   ├── discuss/route.ts   # POST /api/discuss — live roundtable discussion (NDJSON)
 │   │   └── models/route.ts    # GET /api/models — fetch free OpenRouter models
 │   ├── components/
 │   │   ├── AgentCustomizer.tsx # Agent customization UI
 │   │   └── Markdown.tsx        # Zero-dependency markdown renderer
 │   ├── agentData.ts            # Mode→agent mapping, template dedup
+│   ├── discuss/page.tsx        # Hidden /discuss page — live agent roundtable (unlinked)
 │   ├── layout.tsx              # Root layout
 │   └── page.tsx                # Main page (all UI state + orchestration)
 ├── cli/index.ts                # CLI entry point
@@ -43,6 +45,7 @@ src/
 | Module                   | Responsibility                             | Who uses it     |
 | ------------------------ | ------------------------------------------ | --------------- |
 | `src/core/runCouncil.ts` | Orchestrates the full council workflow     | API route, CLI  |
+| `src/core/runDiscussion.ts` | Orchestrates the live turn-based roundtable (2-4 agents, N rounds) | `/api/discuss` |
 | `src/core/types.ts`      | All shared TypeScript types                | Everything      |
 | `src/providers/`         | LLM provider abstraction + retry/timeout   | `runCouncil.ts` |
 | `src/modes/`             | Council mode definitions (agents per mode) | `runCouncil.ts` |

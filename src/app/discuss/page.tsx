@@ -1,0 +1,436 @@
+"use client";
+
+import { useCallback, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { Markdown } from "../components/Markdown";
+import {
+  getDiscussionPersonas,
+  getSummarizerPersonas,
+} from "@/agents/defaultAgents";
+import {
+  DISCUSSION_MIN_AGENTS,
+  DISCUSSION_MAX_AGENTS,
+  DISCUSSION_MIN_ROUNDS,
+  DISCUSSION_MAX_ROUNDS,
+  type DiscussionTurn,
+  type DiscussionSummary,
+  type DiscussionProgressEvent,
+  type RunDiscussionResult,
+  type CouncilAgentMeta,
+} from "@/core/types";
+
+// Per-participant accent colors, assigned by position in the panel.
+const ACCENTS = [
+  "border-blue-500/60 bg-blue-500/10 text-blue-300",
+  "border-purple-500/60 bg-purple-500/10 text-purple-300",
+  "border-emerald-500/60 bg-emerald-500/10 text-emerald-300",
+  "border-amber-500/60 bg-amber-500/10 text-amber-300",
+];
+
+type Phase = "idle" | "running" | "done" | "cancelled" | "error";
+
+type UiError = { title: string; message: string };
+
+export default function DiscussPage() {
+  const personas = useMemo(() => getDiscussionPersonas(), []);
+  const summarizers = useMemo(() => getSummarizerPersonas(), []);
+
+  const [topic, setTopic] = useState("");
+  const [count, setCount] = useState(2);
+  const [agentIds, setAgentIds] = useState<string[]>(() =>
+    personas.slice(0, 2).map((p) => p.id),
+  );
+  const [rounds, setRounds] = useState(2);
+  // Empty string = no summarizer; otherwise an agent-template id.
+  const [summarizerId, setSummarizerId] = useState<string>(
+    () => summarizers[0]?.id ?? "",
+  );
+
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [participants, setParticipants] = useState<CouncilAgentMeta[]>([]);
+  const [turns, setTurns] = useState<DiscussionTurn[]>([]);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [summary, setSummary] = useState<DiscussionSummary | null>(null);
+  const [summarizing, setSummarizing] = useState(false);
+  const [error, setError] = useState<UiError | null>(null);
+  const [inputError, setInputError] = useState<string | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
+  const running = phase === "running";
+
+  // Map agent id → accent index (its position in the panel) for coloring.
+  const accentFor = useCallback(
+    (agentId: string) => {
+      const i = participants.findIndex((p) => p.id === agentId);
+      return ACCENTS[(i < 0 ? 0 : i) % ACCENTS.length];
+    },
+    [participants],
+  );
+
+  const setCountAndAgents = useCallback(
+    (next: number) => {
+      setCount(next);
+      setAgentIds((prev) => {
+        const ids = [...prev];
+        if (next < ids.length) return ids.slice(0, next);
+        // Extend with personas not already chosen.
+        for (const p of personas) {
+          if (ids.length >= next) break;
+          if (!ids.includes(p.id)) ids.push(p.id);
+        }
+        return ids;
+      });
+    },
+    [personas],
+  );
+
+  const setAgentAt = useCallback((index: number, id: string) => {
+    setAgentIds((prev) => prev.map((cur, i) => (i === index ? id : cur)));
+  }, []);
+
+  const cancel = useCallback(() => abortRef.current?.abort(), []);
+
+  const start = useCallback(async () => {
+    if (!topic.trim()) {
+      setInputError("Please enter a topic for the agents to discuss.");
+      return;
+    }
+    if (new Set(agentIds).size !== agentIds.length) {
+      setInputError("Each agent can only be selected once — pick distinct agents.");
+      return;
+    }
+    setInputError(null);
+    setError(null);
+    setTurns([]);
+    setParticipants([]);
+    setSpeakingId(null);
+    setSummary(null);
+    setSummarizing(false);
+    setPhase("running");
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const response = await fetch("/api/discuss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: topic.trim(),
+          agentIds,
+          rounds,
+          ...(summarizerId ? { summarizerId } : {}),
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        const data = await response.json().catch(() => ({}));
+        setError({
+          title: data.error || "Error",
+          message: data.message || "Something went wrong.",
+        });
+        setPhase("error");
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      const handleLine = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        let msg: {
+          kind: "progress" | "result" | "error";
+          event?: DiscussionProgressEvent;
+          result?: RunDiscussionResult;
+          error?: { error?: string; message?: string };
+        };
+        try {
+          msg = JSON.parse(trimmed);
+        } catch {
+          return;
+        }
+
+        if (msg.kind === "progress" && msg.event) {
+          const event = msg.event;
+          switch (event.type) {
+            case "discussion_started":
+              setParticipants(event.participants);
+              break;
+            case "turn_started":
+              setSpeakingId(event.agentId);
+              break;
+            case "turn_completed":
+              setTurns((prev) => [...prev, event.turn]);
+              setSpeakingId(null);
+              break;
+            case "summary_started":
+              setSpeakingId(null);
+              setSummarizing(true);
+              break;
+            case "summary_completed":
+              setSummary(event.summary);
+              setSummarizing(false);
+              break;
+          }
+        } else if (msg.kind === "result" && msg.result) {
+          setTurns(msg.result.turns);
+          setSummary(msg.result.summary ?? null);
+          setSpeakingId(null);
+          setSummarizing(false);
+          setPhase("done");
+        } else if (msg.kind === "error" && msg.error) {
+          setError({
+            title: msg.error.error || "Error",
+            message: msg.error.message || "Something went wrong.",
+          });
+          setPhase("error");
+        }
+      };
+
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buffer.indexOf("\n")) !== -1) {
+          handleLine(buffer.slice(0, nl));
+          buffer = buffer.slice(nl + 1);
+        }
+      }
+      handleLine(buffer);
+      setPhase((p) => (p === "running" ? "done" : p));
+    } catch (err) {
+      if (
+        (err instanceof DOMException && err.name === "AbortError") ||
+        controller.signal.aborted
+      ) {
+        setSpeakingId(null);
+        setSummarizing(false);
+        setPhase("cancelled");
+      } else {
+        setError({
+          title: "Connection error",
+          message: "Unable to reach the server. Please try again.",
+        });
+        setPhase("error");
+      }
+    } finally {
+      abortRef.current = null;
+    }
+  }, [topic, agentIds, rounds, summarizerId]);
+
+  const speakingName =
+    participants.find((p) => p.id === speakingId)?.name ?? null;
+
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-8">
+      <header className="mb-6">
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold">Agent Roundtable</h1>
+          <Link
+            href="/"
+            className="text-sm text-neutral-400 hover:text-neutral-200"
+          >
+            ← Back to Council
+          </Link>
+        </div>
+        <p className="mt-1 text-sm text-neutral-400">
+          Pick a panel of agents and watch them debate your topic back-and-forth,
+          live. The conversation runs for a fixed number of rounds.
+        </p>
+      </header>
+
+      <section className="space-y-4 rounded-lg border border-neutral-800 bg-neutral-900/40 p-4">
+        <div>
+          <label className="mb-1 block text-sm font-medium">Topic</label>
+          <textarea
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            disabled={running}
+            rows={3}
+            placeholder="e.g. Should our startup adopt a 4-day work week?"
+            className="w-full resize-y rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:opacity-60"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              Number of agents
+            </label>
+            <select
+              value={count}
+              onChange={(e) => setCountAndAgents(Number(e.target.value))}
+              disabled={running}
+              className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:opacity-60"
+            >
+              {Array.from(
+                { length: DISCUSSION_MAX_AGENTS - DISCUSSION_MIN_AGENTS + 1 },
+                (_, i) => DISCUSSION_MIN_AGENTS + i,
+              ).map((n) => (
+                <option key={n} value={n}>
+                  {n} agents
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              Rounds (turns each)
+            </label>
+            <select
+              value={rounds}
+              onChange={(e) => setRounds(Number(e.target.value))}
+              disabled={running}
+              className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:opacity-60"
+            >
+              {Array.from(
+                { length: DISCUSSION_MAX_ROUNDS - DISCUSSION_MIN_ROUNDS + 1 },
+                (_, i) => DISCUSSION_MIN_ROUNDS + i,
+              ).map((n) => (
+                <option key={n} value={n}>
+                  {n} {n === 1 ? "round" : "rounds"}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium">
+              Summarizer
+            </label>
+            <select
+              value={summarizerId}
+              onChange={(e) => setSummarizerId(e.target.value)}
+              disabled={running}
+              className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:opacity-60"
+            >
+              <option value="">No summary</option>
+              {summarizers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-sm font-medium">Panel</label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {agentIds.map((id, index) => (
+              <select
+                key={index}
+                value={id}
+                onChange={(e) => setAgentAt(index, e.target.value)}
+                disabled={running}
+                className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:opacity-60"
+              >
+                {personas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {p.role}
+                  </option>
+                ))}
+              </select>
+            ))}
+          </div>
+        </div>
+
+        {inputError && (
+          <p className="text-sm text-red-400">{inputError}</p>
+        )}
+
+        <div className="flex items-center gap-3">
+          {!running ? (
+            <button
+              onClick={start}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+            >
+              Start discussion
+            </button>
+          ) : (
+            <button
+              onClick={cancel}
+              className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
+            >
+              Stop
+            </button>
+          )}
+          {phase === "cancelled" && (
+            <span className="text-sm text-amber-400">Discussion stopped.</span>
+          )}
+          {phase === "done" && turns.length > 0 && (
+            <span className="text-sm text-emerald-400">Discussion complete.</span>
+          )}
+        </div>
+      </section>
+
+      {error && (
+        <div className="mt-4 rounded-md border border-red-800 bg-red-950/40 p-3 text-sm">
+          <p className="font-medium text-red-300">{error.title}</p>
+          <p className="text-red-200/80">{error.message}</p>
+        </div>
+      )}
+
+      {(turns.length > 0 || speakingName) && (
+        <section className="mt-6 space-y-3">
+          {turns.map((turn) => (
+            <div
+              key={turn.index}
+              className={`rounded-lg border p-3 ${accentFor(turn.agentId)}`}
+            >
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide">
+                  {turn.agentName}
+                </span>
+                <span className="text-[11px] text-neutral-500">
+                  Round {turn.round}
+                </span>
+              </div>
+              <div className="markdown-content text-sm text-neutral-200">
+                {turn.ok ? (
+                  <Markdown content={turn.content} />
+                ) : (
+                  <em className="text-neutral-400">{turn.content}</em>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {speakingName && (
+            <div className="flex items-center gap-2 px-2 text-sm text-neutral-400">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-blue-400" />
+              {speakingName} is thinking…
+            </div>
+          )}
+        </section>
+      )}
+
+      {summarizing && (
+        <div className="mt-4 flex items-center gap-2 px-2 text-sm text-neutral-400">
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-neutral-300" />
+          Summarizing the discussion…
+        </div>
+      )}
+
+      {summary && (
+        <section className="mt-6 rounded-lg border border-neutral-700 bg-neutral-900/60 p-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-300">
+            Summary · {summary.agentName}
+          </h2>
+          <div className="markdown-content text-sm text-neutral-200">
+            {summary.ok ? (
+              <Markdown content={summary.content} />
+            ) : (
+              <em className="text-neutral-400">{summary.content}</em>
+            )}
+          </div>
+        </section>
+      )}
+    </main>
+  );
+}

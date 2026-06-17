@@ -345,6 +345,43 @@ export const agentTemplates: AgentTemplate[] = [
   },
 ];
 
+/** Resolves a template id to a runnable CouncilAgent (perspective → systemPrompt). */
+export function resolveAgent(id: string): CouncilAgent | undefined {
+  const t = agentTemplates.find((a) => a.id === id);
+  if (!t) return undefined;
+  return {
+    id: t.id,
+    name: t.name,
+    role: t.role,
+    systemPrompt: t.perspective,
+    isFinalJudge: t.isFinalJudge ?? false,
+    model: t.model,
+  };
+}
+
+/** Lightweight persona descriptor for pickers. */
+export type DiscussionPersona = { id: string; name: string; role: string };
+
+/**
+ * Personas eligible for the live discussion page. Final-judge agents are
+ * excluded — the roundtable is a conversation among peers, with no synthesizer.
+ */
+export function getDiscussionPersonas(): DiscussionPersona[] {
+  return agentTemplates
+    .filter((a) => !a.isFinalJudge)
+    .map((a) => ({ id: a.id, name: a.name, role: a.role }));
+}
+
+/**
+ * Personas eligible to summarize a discussion — the final-judge/synthesizer
+ * agents, whose role is to distill many perspectives into one answer.
+ */
+export function getSummarizerPersonas(): DiscussionPersona[] {
+  return agentTemplates
+    .filter((a) => a.isFinalJudge)
+    .map((a) => ({ id: a.id, name: a.name, role: a.role }));
+}
+
 export function buildSystemPrompt(agent: AgentTemplate): string {
   return [
     agent.isFinalJudge ? FINAL_COUNCIL_AGENT_PROMPT : BASE_COUNCIL_AGENT_PROMPT,

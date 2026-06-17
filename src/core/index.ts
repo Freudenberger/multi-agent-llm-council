@@ -1,4 +1,5 @@
 export { runCouncil } from "./runCouncil";
+export { runDiscussion } from "./runDiscussion";
 export { logger, timed } from "./logger";
 export { logRawExchange, logRawEvent, isRawLogEnabled } from "./rawTranscript";
 export type { RawExchange, RawExchangeRole } from "./rawTranscript";
@@ -11,6 +12,10 @@ export type {
   CouncilRun,
   RunCouncilInput,
   RunCouncilResult,
+  DiscussionTurn,
+  DiscussionProgressEvent,
+  RunDiscussionInput,
+  RunDiscussionResult,
 } from "./types";
 export {
   CouncilError,

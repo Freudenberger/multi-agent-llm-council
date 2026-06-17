@@ -145,3 +145,42 @@ The council run streams its progress to the UI in real time, and the user can ca
 - Cancellation works in demo mode too (the mock provider's simulated delay is abortable)
 
 Because the run state lives in `CouncilProvider` (feature: state survives navigation), a run keeps streaming and can still be cancelled after navigating to Settings and back.
+
+### 10. Peer Review Analysis (optional three-phase pipeline)
+
+A per-run analysis option that inserts an anonymized peer-review/ranking phase between the specialists and the judge. It is **not** a council mode — it works with whichever mode is selected.
+
+**Pipeline:**
+- **Phase 1 — Specialists** (unchanged): the mode's specialists respond in parallel.
+- **Phase 1.5 — Peer review & ranking** (new, opt-in): each specialist whose Phase-1 response succeeded re-enters as an impartial reviewer. Every reviewer sees the same set of responses anonymized as "Response A/B/C…" (authorship withheld to prevent bias) and ranks them.
+- **Phase 2 — Judge** (unchanged orchestration): the peer evaluations are appended to the judge's prompt so the synthesis can weight the peer-preferred responses while preserving valuable minority points.
+
+**How to trigger it:**
+- **Web:** a second **🔍 Run with Peer Review** button next to **Run Council Analysis**.
+- **CLI:** `npm run council -- --mode decision --peer-review "…"`.
+- **API:** `POST /api/council` with `{ "peerReview": true }` (validated by the request schema).
+- **Core:** `runCouncil({ …, peerReview: true })` (`RunCouncilInput.peerReview`).
+
+**Surfacing & safeguards:**
+- The result gains an optional `peerReviews: AgentResponse[]` field (omitted entirely for standard runs). The UI renders a "Peer Review & Ranking" section; the CLI prints a "PEER REVIEW & RANKING" block; the raw transcript logs a `peer_reviews_completed` event.
+- A new `phase_started` event with `phase: "peer-review"` streams to the UI, which shows a dedicated "Phase 2 · Peer Review" row and renumbers synthesis to "Phase 3 · Synthesis".
+- Peer review is skipped (and `peerReviews` stays undefined) when fewer than two specialists succeed — there is nothing to rank.
+
+### 11. Agent Roundtable (hidden live discussion page)
+
+A hidden, unlinked page at `/discuss` where a small panel of agents debate a topic back-and-forth, live — a different orchestration from the council (which answers in parallel then synthesizes). There is no judge; the agents simply converse as peers.
+
+**How it works:**
+- The user enters a topic, picks **2–4 agents** (any non-judge persona from the existing templates), and a **round limit (1–6)** — the loop bound that caps how many times each agent speaks.
+- Turns run **sequentially in round-robin order**: within each round every agent speaks once, in selection order, seeing the full transcript so far and reacting to it. Total turns = agents × rounds.
+- Each completed turn streams to the page as it finishes, so the conversation appears to unfold in real time. A "… is thinking" indicator shows the agent whose turn is in flight.
+- **Optional summarizer:** the user can pick a final-judge/synthesizer persona (via `getSummarizerPersonas()`) to distill the whole transcript into one user-facing summary after the rounds finish — or choose "No summary". Surfaced as `RunDiscussionResult.summary` (a `DiscussionSummary`, omitted when none was selected) and `summary_started` / `summary_completed` progress events, rendered in its own panel below the conversation.
+- **Degenerate-reply retry:** turns (and the summary) whose model reply is empty, trivially short, or a bare label/classification line (e.g. `User Safety: safe`) are detected by `isDegenerateResponse` and re-generated up to twice with a nudging reminder; a persistently unusable reply is recorded as an `ok: false` placeholder rather than polluting the transcript.
+
+**Touchpoints:**
+- **Page:** `src/app/discuss/page.tsx` — self-contained client component, **not linked from any nav** (reachable only by URL).
+- **Core:** `runDiscussion(input)` in `src/core/runDiscussion.ts`; types `RunDiscussionInput` / `RunDiscussionResult` / `DiscussionTurn` / `DiscussionProgressEvent` and the bounds `DISCUSSION_MIN/MAX_AGENTS` (2/4) and `DISCUSSION_MIN/MAX_ROUNDS` (1/6) in `src/core/types.ts`.
+- **API:** `POST /api/discuss` returns the same NDJSON stream shape as the council (`{ kind: "progress" | "result" | "error" }`); progress events are `discussion_started`, `round_started`, `turn_started`, `turn_completed`. Cancellable via client disconnect (`CouncilAbortedError`).
+- **Prompts:** `buildDiscussionSystemPrompt` / `buildDiscussionUserMessage` wrap each persona with conversational rules and feed it the running transcript.
+- **Personas:** `getDiscussionPersonas()` in `src/agents/defaultAgents.ts` lists the selectable (non-judge) agents; `resolveAgent(id)` turns a template id into a runnable agent.
+- A failed turn records a short placeholder (`ok: false`) and the discussion continues with the remaining agents rather than aborting the whole run.

@@ -1,4 +1,4 @@
-import type { CouncilAgent } from "../core/types";
+import type { CouncilAgent, DiscussionTurn } from "../core/types";
 
 const MODE_DESCRIPTIONS: Record<string, string> = {
   decision:
@@ -194,6 +194,106 @@ ${responsesText}
 ---
 
 Evaluate each response and rank them from best to worst using the required format.`;
+}
+
+// ─── Live discussion (roundtable) prompts ───────────────────────────
+
+/**
+ * Builds the system prompt for an agent taking part in the live, back-and-forth
+ * discussion (the hidden /discuss page). Wraps the agent's persona with rules
+ * that turn it from an independent analyst into a conversational participant.
+ */
+export function buildDiscussionSystemPrompt(
+  agent: CouncilAgent,
+  participantNames: string[],
+): string {
+  const others = participantNames.filter((n) => n !== agent.name);
+  const withClause = others.length
+    ? ` alongside other participants: ${others.join(", ")}`
+    : "";
+
+  return `${agent.systemPrompt}
+
+You are taking part in a live, multi-agent roundtable discussion${withClause}.
+
+How to participate:
+- Stay fully in character and argue from your role's point of view.
+- This is a conversation, not a standalone report. Read what others have said and respond to it directly — agree and build on it, push back, or ask a pointed question.
+- Address other participants by name when you react to a specific point they made.
+- Be conversational and concise: a few sentences up to a short paragraph. Do not write essays or bullet-point reports.
+- Keep the discussion moving — add something new each turn rather than repeating earlier points.
+- Do not declare a final verdict or wrap up the discussion; it continues after you.
+- Never break character or mention that you are an AI, a language model, or part of a system.`;
+}
+
+/**
+ * Builds the user message for a single discussion turn. The agent sees the
+ * topic and the full transcript so far (every prior turn, attributed by name),
+ * then is prompted to take its turn.
+ */
+export function buildDiscussionUserMessage(
+  topic: string,
+  transcript: DiscussionTurn[],
+  agent: CouncilAgent,
+  round: number,
+  totalRounds: number,
+): string {
+  const conversation =
+    transcript.length === 0
+      ? "(Nobody has spoken yet. You are opening the discussion — give your initial take on the topic.)"
+      : transcript.map((t) => `${t.agentName}: ${t.content}`).join("\n\n");
+
+  return `Discussion topic:
+${topic}
+
+Conversation so far:
+${conversation}
+
+---
+
+You are ${agent.name}. It is now your turn to speak (round ${round} of ${totalRounds}). Respond in character, reacting to what has been said so far.`;
+}
+
+/**
+ * Builds the system prompt for the agent that summarizes a finished discussion.
+ * Wraps the chosen persona with instructions to distill the whole roundtable
+ * into one clear, user-facing summary.
+ */
+export function buildDiscussionSummarySystemPrompt(agent: CouncilAgent): string {
+  return `${agent.systemPrompt}
+
+You have observed a complete multi-agent roundtable discussion on a topic. Your job now is to summarize the entire discussion for the user.
+
+Write a clear, well-organized summary that:
+- Captures the main points and strongest arguments each participant made.
+- Highlights where participants agreed and where they genuinely disagreed.
+- Surfaces the most important insights, risks, or open questions raised.
+- Ends with a short, balanced takeaway or conclusion.
+
+Write for the user, not for the participants. Do not invent points that were not discussed, and do not simply transcribe the conversation turn-by-turn. Keep it proportional to the depth of the discussion.`;
+}
+
+/**
+ * Builds the user message for the discussion summarizer: the topic plus the
+ * full transcript, every turn attributed by name.
+ */
+export function buildDiscussionSummaryUserMessage(
+  topic: string,
+  transcript: DiscussionTurn[],
+): string {
+  const conversation = transcript
+    .map((t) => `${t.agentName}: ${t.content}`)
+    .join("\n\n");
+
+  return `Discussion topic:
+${topic}
+
+Full discussion transcript:
+${conversation}
+
+---
+
+Summarize the discussion above for the user.`;
 }
 
 /**

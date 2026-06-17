@@ -160,3 +160,92 @@ export type RunCouncilResult = {
   finalReport: FinalReport;
   createdAt: string;
 };
+
+// ─── Discussion (live roundtable) ───────────────────────────────────
+//
+// A separate orchestration from the council: instead of specialists answering
+// in parallel and a judge synthesizing, a small panel of agents talks
+// back-and-forth in turns. Each agent sees the full transcript so far and
+// reacts to it. The loop is bounded by `rounds` — the number of times each
+// agent speaks. Powers the hidden /discuss page.
+
+/** Inclusive bounds on the live-discussion panel size. */
+export const DISCUSSION_MIN_AGENTS = 2;
+export const DISCUSSION_MAX_AGENTS = 4;
+/** Inclusive bounds on how many times each agent speaks (the loop limit). */
+export const DISCUSSION_MIN_ROUNDS = 1;
+export const DISCUSSION_MAX_ROUNDS = 6;
+
+/** The closing summary produced by the optional summarizer agent. */
+export type DiscussionSummary = {
+  agentId: string;
+  agentName: string;
+  content: string;
+  /** False when the summarizer failed and `content` is a placeholder. */
+  ok: boolean;
+};
+
+/** One agent's contribution at a point in the discussion. */
+export type DiscussionTurn = {
+  /** 1-based round number (each round, every agent speaks once). */
+  round: number;
+  /** 0-based position across the whole discussion. */
+  index: number;
+  agentId: string;
+  agentName: string;
+  content: string;
+  /** False when the agent's turn failed and `content` is a placeholder. */
+  ok: boolean;
+};
+
+export type RunDiscussionInput = {
+  /** The question/topic the panel discusses. */
+  topic: string;
+  /** Ordered participant agent-template ids (2-4, distinct). */
+  agentIds: string[];
+  /** How many times each agent speaks — the loop limit (1-6). */
+  rounds: number;
+  /**
+   * Optional agent-template id that summarizes the whole discussion after the
+   * rounds finish. When omitted, no summary is produced.
+   */
+  summarizerId?: string;
+  /**
+   * Optional user-level model allow-list. Each participant without an explicit
+   * model is assigned one at random from this list (stable for the whole run).
+   */
+  fallbackModels?: string[];
+  /** Optional caller-supplied run id; also becomes the result id. */
+  runId?: string;
+  /** Optional callback invoked as the discussion progresses. */
+  onProgress?: (event: DiscussionProgressEvent) => void;
+  /** Optional abort signal — stops the discussion at the next turn boundary. */
+  signal?: AbortSignal;
+};
+
+/**
+ * Progress events emitted by `runDiscussion` via `onProgress`. The API route
+ * serializes these to the client so the UI can render the conversation live.
+ */
+export type DiscussionProgressEvent =
+  | {
+      type: "discussion_started";
+      participants: CouncilAgentMeta[];
+      rounds: number;
+    }
+  | { type: "round_started"; round: number }
+  | { type: "turn_started"; round: number; agentId: string }
+  | { type: "turn_completed"; turn: DiscussionTurn; durationMs: number }
+  | { type: "summary_started"; agentId: string }
+  | { type: "summary_completed"; summary: DiscussionSummary; durationMs: number };
+
+export type RunDiscussionResult = {
+  id: string;
+  topic: string;
+  participants: CouncilAgentMeta[];
+  rounds: number;
+  turns: DiscussionTurn[];
+  /** Present only when a summarizer was selected for the run. */
+  summary?: DiscussionSummary;
+  createdAt: string;
+};

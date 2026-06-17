@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   // run alongside a normal `npm run dev` on port 3000 without Turbopack
   // contending over the same `.next` folder). Defaults to `.next`.
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  // Allow accessing the dev server (and its HMR/webpack resources) from other
+  // hosts on the local network. Next.js blocks cross-origin dev requests by
+  // default; list the LAN IPs/hostnames used to reach the dev server here.
+  allowedDevOrigins: ["10.57.102.2"],
 };
 
 export default nextConfig;
