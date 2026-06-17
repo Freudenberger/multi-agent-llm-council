@@ -48,12 +48,16 @@ export default function DiscussPage() {
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [participants, setParticipants] = useState<CouncilAgentMeta[]>([]);
+  const [runRounds, setRunRounds] = useState(0);
   const [turns, setTurns] = useState<DiscussionTurn[]>([]);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [summary, setSummary] = useState<DiscussionSummary | null>(null);
   const [summarizing, setSummarizing] = useState(false);
   const [error, setError] = useState<UiError | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
+  // Turn indices whose body is collapsed; summary collapse is tracked separately.
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+  const [summaryCollapsed, setSummaryCollapsed] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const running = phase === "running";
@@ -88,6 +92,23 @@ export default function DiscussPage() {
     setAgentIds((prev) => prev.map((cur, i) => (i === index ? id : cur)));
   }, []);
 
+  const toggleTurn = useCallback((index: number) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
+
+  const toggleAll = useCallback(() => {
+    setCollapsed((prev) => {
+      const everyCollapsed =
+        turns.length > 0 && turns.every((t) => prev.has(t.index));
+      return everyCollapsed ? new Set() : new Set(turns.map((t) => t.index));
+    });
+  }, [turns]);
+
   const cancel = useCallback(() => abortRef.current?.abort(), []);
 
   const start = useCallback(async () => {
@@ -103,9 +124,12 @@ export default function DiscussPage() {
     setError(null);
     setTurns([]);
     setParticipants([]);
+    setRunRounds(rounds);
     setSpeakingId(null);
     setSummary(null);
     setSummarizing(false);
+    setCollapsed(new Set());
+    setSummaryCollapsed(false);
     setPhase("running");
 
     const controller = new AbortController();
@@ -158,6 +182,7 @@ export default function DiscussPage() {
           switch (event.type) {
             case "discussion_started":
               setParticipants(event.participants);
+              setRunRounds(event.rounds);
               break;
             case "turn_started":
               setSpeakingId(event.agentId);
@@ -176,6 +201,8 @@ export default function DiscussPage() {
               break;
           }
         } else if (msg.kind === "result" && msg.result) {
+          setParticipants(msg.result.participants);
+          setRunRounds(msg.result.rounds);
           setTurns(msg.result.turns);
           setSummary(msg.result.summary ?? null);
           setSpeakingId(null);
@@ -224,6 +251,25 @@ export default function DiscussPage() {
 
   const speakingName =
     participants.find((p) => p.id === speakingId)?.name ?? null;
+
+  // Discussion progress: total turns = panel size × rounds.
+  const expectedTurns = participants.length * runRounds;
+  const completedTurns = turns.length;
+  const progressPct =
+    expectedTurns > 0
+      ? Math.min(100, Math.round((completedTurns / expectedTurns) * 100))
+      : 0;
+  // The round currently in flight (or the last one completed when idle).
+  const displayRound =
+    participants.length > 0
+      ? speakingName
+        ? Math.min(runRounds, Math.floor(completedTurns / participants.length) + 1)
+        : completedTurns > 0
+          ? turns[turns.length - 1].round
+          : 0
+      : 0;
+  const allCollapsed =
+    turns.length > 0 && turns.every((t) => collapsed.has(t.index));
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
@@ -369,6 +415,38 @@ export default function DiscussPage() {
         </div>
       </section>
 
+      {expectedTurns > 0 && (
+        <section className="mt-6">
+          <div className="mb-1 flex items-center justify-between text-xs text-neutral-400">
+            <span>
+              {phase === "cancelled"
+                ? "Stopped"
+                : phase === "done"
+                  ? "Discussion complete"
+                  : summarizing
+                    ? "Summarizing the discussion…"
+                    : `Round ${displayRound} of ${runRounds}`}
+            </span>
+            <span>
+              {completedTurns} / {expectedTurns} turns
+            </span>
+          </div>
+          <div
+            className="h-2 w-full overflow-hidden rounded-full bg-neutral-800"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progressPct}
+            aria-label={`Discussion progress: ${completedTurns} of ${expectedTurns} turns`}
+          >
+            <div
+              className="h-full rounded-full bg-blue-500 transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </section>
+      )}
+
       {error && (
         <div className="mt-4 rounded-md border border-red-800 bg-red-950/40 p-3 text-sm">
           <p className="font-medium text-red-300">{error.title}</p>
@@ -378,28 +456,57 @@ export default function DiscussPage() {
 
       {(turns.length > 0 || speakingName) && (
         <section className="mt-6 space-y-3">
-          {turns.map((turn) => (
-            <div
-              key={turn.index}
-              className={`rounded-lg border p-3 ${accentFor(turn.agentId)}`}
-            >
-              <div className="mb-1 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide">
-                  {turn.agentName}
-                </span>
-                <span className="text-[11px] text-neutral-500">
-                  Round {turn.round}
-                </span>
-              </div>
-              <div className="markdown-content text-sm text-neutral-200">
-                {turn.ok ? (
-                  <Markdown content={turn.content} />
-                ) : (
-                  <em className="text-neutral-400">{turn.content}</em>
+          {turns.length > 0 && (
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-neutral-300">
+                Conversation
+              </h2>
+              <button
+                onClick={toggleAll}
+                className="text-xs text-neutral-400 hover:text-neutral-200"
+              >
+                {allCollapsed ? "Expand all" : "Collapse all"}
+              </button>
+            </div>
+          )}
+
+          {turns.map((turn) => {
+            const isCollapsed = collapsed.has(turn.index);
+            return (
+              <div
+                key={turn.index}
+                className={`rounded-lg border p-3 ${accentFor(turn.agentId)}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleTurn(turn.index)}
+                  aria-expanded={!isCollapsed}
+                  className="flex w-full items-center justify-between gap-2 text-left"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-[11px] text-neutral-500">
+                      {isCollapsed ? "▸" : "▾"}
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-wide">
+                      {turn.agentName}
+                    </span>
+                  </span>
+                  <span className="text-[11px] text-neutral-500">
+                    Round {turn.round}
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <div className="markdown-content mt-1 text-sm text-neutral-200">
+                    {turn.ok ? (
+                      <Markdown content={turn.content} />
+                    ) : (
+                      <em className="text-neutral-400">{turn.content}</em>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {speakingName && (
             <div className="flex items-center gap-2 px-2 text-sm text-neutral-400">
@@ -419,16 +526,28 @@ export default function DiscussPage() {
 
       {summary && (
         <section className="mt-6 rounded-lg border border-neutral-700 bg-neutral-900/60 p-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-300">
-            Summary · {summary.agentName}
-          </h2>
-          <div className="markdown-content text-sm text-neutral-200">
-            {summary.ok ? (
-              <Markdown content={summary.content} />
-            ) : (
-              <em className="text-neutral-400">{summary.content}</em>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setSummaryCollapsed((c) => !c)}
+            aria-expanded={!summaryCollapsed}
+            className="flex w-full items-center justify-between gap-2 text-left"
+          >
+            <span className="text-sm font-semibold uppercase tracking-wide text-neutral-300">
+              Summary · {summary.agentName}
+            </span>
+            <span className="text-[11px] text-neutral-500">
+              {summaryCollapsed ? "▸" : "▾"}
+            </span>
+          </button>
+          {!summaryCollapsed && (
+            <div className="markdown-content mt-2 text-sm text-neutral-200">
+              {summary.ok ? (
+                <Markdown content={summary.content} />
+              ) : (
+                <em className="text-neutral-400">{summary.content}</em>
+              )}
+            </div>
+          )}
         </section>
       )}
     </main>
