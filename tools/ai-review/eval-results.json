@@ -1,0 +1,1154 @@
+{
+  "evalId": "eval-0bz-2026-06-19T20:29:07",
+  "results": {
+    "version": 3,
+    "timestamp": "2026-06-19T20:29:07.747Z",
+    "prompts": [
+      {
+        "raw": "You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+        "label": "tools\\ai-review\\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+        "id": "5f5dde4b5bdc53c68f563750db2a46fa353261df310368b2c840581d88447bc8",
+        "provider": "nemotron",
+        "metrics": {
+          "score": 0,
+          "testPassCount": 0,
+          "testFailCount": 0,
+          "testErrorCount": 2,
+          "assertPassCount": 0,
+          "assertFailCount": 0,
+          "totalLatencyMs": 601164,
+          "tokenUsage": {
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "total": 0,
+            "numRequests": 2,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "namedScoreWeights": {},
+          "cost": 0
+        }
+      },
+      {
+        "raw": "You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+        "label": "tools\\ai-review\\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+        "id": "5f5dde4b5bdc53c68f563750db2a46fa353261df310368b2c840581d88447bc8",
+        "provider": "laguna",
+        "metrics": {
+          "score": 0,
+          "testPassCount": 0,
+          "testFailCount": 2,
+          "testErrorCount": 0,
+          "assertPassCount": 0,
+          "assertFailCount": 11,
+          "totalLatencyMs": 105127,
+          "tokenUsage": {
+            "prompt": 1207,
+            "completion": 1625,
+            "cached": 0,
+            "total": 2832,
+            "numRequests": 2,
+            "completionDetails": {
+              "reasoning": 1252,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 11,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "namedScoreWeights": {},
+          "cost": 0
+        }
+      },
+      {
+        "raw": "You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+        "label": "tools\\ai-review\\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+        "id": "5f5dde4b5bdc53c68f563750db2a46fa353261df310368b2c840581d88447bc8",
+        "provider": "owl-alpha",
+        "metrics": {
+          "score": 1,
+          "testPassCount": 1,
+          "testFailCount": 1,
+          "testErrorCount": 0,
+          "assertPassCount": 5,
+          "assertFailCount": 6,
+          "totalLatencyMs": 27536,
+          "tokenUsage": {
+            "prompt": 1329,
+            "completion": 684,
+            "cached": 0,
+            "total": 2013,
+            "numRequests": 2,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            },
+            "assertions": {
+              "total": 0,
+              "prompt": 0,
+              "completion": 0,
+              "cached": 0,
+              "numRequests": 0,
+              "completionDetails": {
+                "reasoning": 0,
+                "acceptedPrediction": 0,
+                "rejectedPrediction": 0,
+                "cacheReadInputTokens": 0,
+                "cacheCreationInputTokens": 0
+              }
+            }
+          },
+          "namedScores": {},
+          "namedScoresCount": {},
+          "namedScoreWeights": {},
+          "cost": 0
+        }
+      }
+    ],
+    "results": [
+      {
+        "cost": 0,
+        "error": "Error calling OpenAI Codex SDK: Failed to parse item: SUCCESS: The process with PID 23756 (child process of PID 22880) has been terminated.",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Error calling OpenAI Codex SDK: Failed to parse item: SUCCESS: The process with PID 23756 (child process of PID 22880) has been terminated.",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output to be valid JSON",
+              "assertion": {
+                "type": "is-json"
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Unexpected token '`', \"```json\n{\n\"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token '`', \"```json\n{\n\"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:16)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:452:13\n    at Object.eachOfLimit (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:478:36)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:220:25\nconst o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);",
+              "assertion": {
+                "type": "javascript",
+                "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output to be valid JSON",
+              "assertion": {
+                "type": "is-json"
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Unexpected token '`', \"```json\n{\n\"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token '`', \"```json\n{\n\"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:13)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at iterateeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:431:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:328:20\n    at invokeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:182:13)\nJSON.parse(output).verdict === \"fail\"",
+              "assertion": {
+                "type": "javascript",
+                "value": "JSON.parse(output).verdict === \"fail\""
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Unexpected token '`', \"```json\n{\n\"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token '`', \"```json\n{\n\"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:13)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at iterateeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:431:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:328:20\n    at invokeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:182:13)\nJSON.parse(output).securitySafety <= 5",
+              "assertion": {
+                "type": "javascript",
+                "value": "JSON.parse(output).securitySafety <= 5"
+              }
+            },
+            {
+              "pass": false,
+              "reason": "Error calling OpenAI Codex SDK: Failed to parse item: SUCCESS: The process with PID 23756 (child process of PID 22880) has been terminated.",
+              "score": 0,
+              "tokensUsed": {
+                "total": 0,
+                "prompt": 0,
+                "completion": 0,
+                "cached": 0,
+                "numRequests": 0,
+                "completionDetails": {
+                  "reasoning": 0,
+                  "acceptedPrediction": 0,
+                  "rejectedPrediction": 0
+                }
+              },
+              "metadata": {
+                "graderError": true
+              },
+              "assertion": {
+                "type": "llm-rubric",
+                "value": "The review flags SQL injection / unsafe string-built query as the reason to reject."
+              }
+            }
+          ]
+        },
+        "id": "0b1a6a17-4b63-4366-9cb6-7f575277d04d",
+        "latencyMs": 21068,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\ndiff --git a/src/app/api/conversations/route.ts b/src/app/api/conversations/route.ts\nindex 1111111..2222222 100644\n--- a/src/app/api/conversations/route.ts\n+++ b/src/app/api/conversations/route.ts\n@@ -10,6 +10,13 @@ export async function GET(request: NextRequest) {\n   const session = await auth();\n   if (!session?.user?.id) {\n     return NextResponse.json({ error: \"Unauthorized\" }, { status: 401 });\n   }\n+\n+  // NEW: free-text search over a user's conversations\n+  const q = request.nextUrl.searchParams.get(\"q\") ?? \"\";\n+  const sql = `select * from conversations where user_id = '${session.user.id}' and title like '%${q}%'`;\n+  const rows = await db.raw(sql);\n+  return NextResponse.json(rows);\n+\n   const list = await storage.list(session.user.id);\n   return NextResponse.json(list);\n }",
+          "label": "tools\\ai-review\\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+          "config": {}
+        },
+        "promptId": "5f5dde4b5bdc53c68f563750db2a46fa353261df310368b2c840581d88447bc8",
+        "promptIdx": 2,
+        "provider": {
+          "id": "openrouter:openrouter/owl-alpha",
+          "label": "owl-alpha"
+        },
+        "response": {
+          "output": "```json\n{\n  \"implementationCorrectness\": 2,\n  \"idiomaticity\": 2,\n  \"simplicity\": 3,\n  \"testRiskCoverage\": 1,\n  \"securitySafety\": 1,\n  \"verdict\": \"fail\",\n  \"summary\": \"The diff introduces a raw SQL query with string interpolation of user-supplied input (`q`) directly into the SQL string, creating a critical SQL injection vulnerability. It also bypasses the existing `storage.list()` abstraction, uses `db.raw()` instead of the repository pattern, and has zero test coverage for the new path.\",\n  \"findings\": [\n    {\n      \"severity\": \"blocker\",\n      \"file\": \"src/app/api/conversations/route.ts\",\n      \"note\": \"SQL injection: user-supplied `q` is interpolated directly into the SQL string via template literal (`'%${q}%'`). An attacker can exfiltrate or destroy arbitrary data. Must use parameterized queries.\"\n    },\n    {\n      \"severity\": \"blocker\",\n      \"file\": \"src/app/api/conversations/route.ts\",\n      \"note\": \"The new code path completely replaces the existing `storage.list()` call, meaning the original listing functionality is silently removed/dead code. The diff claims to add search but actually overwrites behavior.\"\n    },\n    {\n      \"severity\": \"major\",\n      \"file\": \"src/app/api/conversations/route.ts\",\n      \"note\": \"Uses `db.raw()` with raw SQL instead of the repository/storage abstraction layer, violating the modular-monolith convention that Core stays UI-independent and data access goes through defined storage interfaces.\"\n    },\n    {\n      \"severity\": \"major\",\n      \"file\": \"src/app/api/conversations/route.ts\",\n      \"note\": \"No input validation or sanitization on the `q` parameter — no length limits, no character filtering, no max-result pagination, enabling abuse via extremely long strings or wildcard-heavy queries.\"\n    },\n    {\n      \"severity\": \"major\",\n      \"file\": \"src/app/api/conversations/route.ts\",\n      \"note\": \"No tests cover the new search path, the SQL injection vector, or the behavioral change to the GET handler.\"\n    },\n    {\n      \"severity\": \"minor\",\n      \"file\": \"src/app/api/conversations/route.ts\",\n      \"note\": \"The `?? \\\"\\\"` default for `q` means an empty search returns all conversations (via `LIKE '%%'`), which may be an unintended full-table scan with no pagination.\"\n    }\n  ]\n}\n```",
+          "tokenUsage": {
+            "total": 1182,
+            "prompt": 643,
+            "completion": 539,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0
+            }
+          },
+          "cached": false,
+          "finishReason": "stop"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "SQL injection via string-built query must be rejected",
+          "vars": {
+            "diff": "file://fixtures\\sql-injection.diff"
+          },
+          "assert": [
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+            },
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).verdict === \"fail\""
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).securitySafety <= 5"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "The review flags SQL injection / unsafe string-built query as the reason to reject."
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "tokenUsage": {
+          "prompt": 643,
+          "completion": 539,
+          "cached": 0,
+          "total": 1182,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "diff": "file://fixtures\\sql-injection.diff"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "Error calling OpenAI Codex SDK: Failed to parse item: SUCCESS: The process with PID 12516 (child process of PID 18324) has been terminated.",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Error calling OpenAI Codex SDK: Failed to parse item: SUCCESS: The process with PID 12516 (child process of PID 18324) has been terminated.",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output to be valid JSON",
+              "assertion": {
+                "type": "is-json"
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Unexpected token 'T', \"Thinking: \"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token 'T', \"Thinking: \"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:16)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:452:13\n    at Object.eachOfLimit (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:478:36)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:220:25\nconst o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);",
+              "assertion": {
+                "type": "javascript",
+                "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output to be valid JSON",
+              "assertion": {
+                "type": "is-json"
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Unexpected token 'T', \"Thinking: \"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token 'T', \"Thinking: \"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:13)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at iterateeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:431:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:328:20\n    at invokeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:182:13)\nJSON.parse(output).verdict === \"fail\"",
+              "assertion": {
+                "type": "javascript",
+                "value": "JSON.parse(output).verdict === \"fail\""
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Unexpected token 'T', \"Thinking: \"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token 'T', \"Thinking: \"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:13)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at iterateeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:431:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:328:20\n    at invokeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:182:13)\nJSON.parse(output).securitySafety <= 5",
+              "assertion": {
+                "type": "javascript",
+                "value": "JSON.parse(output).securitySafety <= 5"
+              }
+            },
+            {
+              "pass": false,
+              "reason": "Error calling OpenAI Codex SDK: Failed to parse item: SUCCESS: The process with PID 12516 (child process of PID 18324) has been terminated.",
+              "score": 0,
+              "tokensUsed": {
+                "total": 0,
+                "prompt": 0,
+                "completion": 0,
+                "cached": 0,
+                "numRequests": 0,
+                "completionDetails": {
+                  "reasoning": 0,
+                  "acceptedPrediction": 0,
+                  "rejectedPrediction": 0
+                }
+              },
+              "metadata": {
+                "graderError": true
+              },
+              "assertion": {
+                "type": "llm-rubric",
+                "value": "The review flags SQL injection / unsafe string-built query as the reason to reject."
+              }
+            }
+          ]
+        },
+        "id": "ca552a1e-07c7-43cd-9042-0c0a6e2726f7",
+        "latencyMs": 46553,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\ndiff --git a/src/app/api/conversations/route.ts b/src/app/api/conversations/route.ts\nindex 1111111..2222222 100644\n--- a/src/app/api/conversations/route.ts\n+++ b/src/app/api/conversations/route.ts\n@@ -10,6 +10,13 @@ export async function GET(request: NextRequest) {\n   const session = await auth();\n   if (!session?.user?.id) {\n     return NextResponse.json({ error: \"Unauthorized\" }, { status: 401 });\n   }\n+\n+  // NEW: free-text search over a user's conversations\n+  const q = request.nextUrl.searchParams.get(\"q\") ?? \"\";\n+  const sql = `select * from conversations where user_id = '${session.user.id}' and title like '%${q}%'`;\n+  const rows = await db.raw(sql);\n+  return NextResponse.json(rows);\n+\n   const list = await storage.list(session.user.id);\n   return NextResponse.json(list);\n }",
+          "label": "tools\\ai-review\\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+          "config": {}
+        },
+        "promptId": "5f5dde4b5bdc53c68f563750db2a46fa353261df310368b2c840581d88447bc8",
+        "promptIdx": 1,
+        "provider": {
+          "id": "openrouter:poolside/laguna-m.1:free",
+          "label": "laguna"
+        },
+        "response": {
+          "output": "Thinking: \nLet me analyze this diff carefully against the five dimensions:\n\n1. **implementationCorrectness**: The code adds a free-text search feature. However, there's a critical issue - the original code that lists conversations (`const list = await storage.list(session.user.id)`) is now unreachable because it comes after a return statement. This is a major bug - the new code returns early and the original functionality is broken. Also, the SQL query is vulnerable to SQL injection.\n\n2. **idiomaticity**: \n   - Uses raw SQL instead of the existing `storage.list()` pattern - not following repo conventions\n   - No use of core error taxonomy (just returns generic error)\n   - The `db.raw(sql)` suggests bypassing any ORM/core data access patterns\n   - Magic string SQL query\n\n3. **simplicity**: \n   - The change is relatively simple in concept but introduces a critical bug (unreachable code)\n   - Uses raw SQL which is more complex than it needs to be\n   - The unreachable code makes it not the \"smallest change that solves it\"\n\n4. **testRiskCoverage**: \n   - No tests are added for this new functionality\n   - The SQL injection vulnerability is a high-risk path that's not covered\n   - No indication of test changes\n\n5. **securitySafety**: \n   - **CRITICAL**: SQL injection vulnerability - user input `q` is directly interpolated into SQL without sanitization\n   - The `session.user.id` is also interpolated directly, though it comes from auth, it's still not parameterized\n   - This is a major security issue\n\n**Blocker finding**: The SQL injection vulnerability is a blocker. Also, the unreachable code after the return statement is a major bug.\n\nLet me score each dimension:\n- implementationCorrectness: 2 (unreachable code breaks original functionality, SQL injection)\n- idiomaticity: 3 (doesn't follow existing patterns, uses raw SQL)\n- simplicity: 4 (introduces unnecessary complexity with raw SQL, and has dead code)\n- testRiskCoverage: 1 (no tests for new risky functionality)\n- securitySafety: 1 (severe SQL injection vulnerability)\n\nVerdict: \"fail\" (multiple dimensions <= 3, securitySafety <= 5, and blocker findings)\n\n\n\n{\"implementationCorrectness\":2,\"idiomaticity\":3,\"simplicity\":4,\"testRiskCoverage\":1,\"securitySafety\":1,\"verdict\":\"fail\",\"summary\":\"Critical SQL injection vulnerability introduced with unsanitized user input in raw query. Original conversation listing functionality is now unreachable due to early return, breaking existing behavior.\",\"findings\":[{\"severity\":\"blocker\",\"file\":\"src/app/api/conversations/route.ts\",\"note\":\"SQL injection vulnerability: user-supplied 'q' parameter directly interpolated into raw SQL query without sanitization or parameterization\"},{\"severity\":\"blocker\",\"file\":\"src/app/api/conversations/route.ts\",\"note\":\"Unreachable code: original storage.list() call is now dead code after the new return statement, breaking existing conversation listing functionality\"},{\"severity\":\"major\",\"file\":\"src/app/api/conversations/route.ts\",\"note\":\"Non-idiomatic: bypasses existing storage abstraction in favor of raw SQL queries, violating modular monolith patterns\"},{\"severity\":\"major\",\"file\":\"src/app/api/conversations/route.ts\",\"note\":\"No test coverage for new search functionality or SQL injection attack vectors\"},{\"severity\":\"minor\",\"file\":\"src/app/api/conversations/route.ts\",\"note\":\"Magic string SQL query instead of using parameterized queries or existing data access patterns\"}]}\n",
+          "tokenUsage": {
+            "total": 1323,
+            "prompt": 582,
+            "completion": 741,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 478,
+              "cacheReadInputTokens": 5
+            }
+          },
+          "cached": false,
+          "finishReason": "stop"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "SQL injection via string-built query must be rejected",
+          "vars": {
+            "diff": "file://fixtures\\sql-injection.diff"
+          },
+          "assert": [
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+            },
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).verdict === \"fail\""
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).securitySafety <= 5"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "The review flags SQL injection / unsafe string-built query as the reason to reject."
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "tokenUsage": {
+          "prompt": 582,
+          "completion": 741,
+          "cached": 0,
+          "total": 1323,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 478,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 5,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "diff": "file://fixtures\\sql-injection.diff"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "API error: Provider returned error, Code: 504\n\n{\n  \"error\": {\n    \"message\": \"Provider returned error\",\n    \"code\": 504\n  }\n}",
+        "gradingResult": null,
+        "id": "ab9551c6-c518-4420-8543-39ba67ff3c18",
+        "latencyMs": 300646,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\ndiff --git a/src/app/api/conversations/route.ts b/src/app/api/conversations/route.ts\nindex 1111111..2222222 100644\n--- a/src/app/api/conversations/route.ts\n+++ b/src/app/api/conversations/route.ts\n@@ -10,6 +10,13 @@ export async function GET(request: NextRequest) {\n   const session = await auth();\n   if (!session?.user?.id) {\n     return NextResponse.json({ error: \"Unauthorized\" }, { status: 401 });\n   }\n+\n+  // NEW: free-text search over a user's conversations\n+  const q = request.nextUrl.searchParams.get(\"q\") ?? \"\";\n+  const sql = `select * from conversations where user_id = '${session.user.id}' and title like '%${q}%'`;\n+  const rows = await db.raw(sql);\n+  return NextResponse.json(rows);\n+\n   const list = await storage.list(session.user.id);\n   return NextResponse.json(list);\n }",
+          "label": "tools\\ai-review\\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+          "config": {}
+        },
+        "promptId": "5f5dde4b5bdc53c68f563750db2a46fa353261df310368b2c840581d88447bc8",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+          "label": "nemotron"
+        },
+        "response": {
+          "error": "API error: Provider returned error, Code: 504\n\n{\n  \"error\": {\n    \"message\": \"Provider returned error\",\n    \"code\": 504\n  }\n}"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "SQL injection via string-built query must be rejected",
+          "vars": {
+            "diff": "file://fixtures\\sql-injection.diff"
+          },
+          "assert": [
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+            },
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).verdict === \"fail\""
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).securitySafety <= 5"
+            },
+            {
+              "type": "llm-rubric",
+              "value": "The review flags SQL injection / unsafe string-built query as the reason to reject."
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 0,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "diff": "file://fixtures\\sql-injection.diff"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "error": "Custom function threw error: Unexpected token 'T', \"Thinking: \"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token 'T', \"Thinking: \"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:13)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at iterateeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:431:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:328:20\n    at invokeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:182:13)\nJSON.parse(output).testRiskCoverage >= 6",
+        "gradingResult": {
+          "pass": false,
+          "score": 0,
+          "reason": "Custom function threw error: Unexpected token 'T', \"Thinking: \"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token 'T', \"Thinking: \"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:13)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at iterateeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:431:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:328:20\n    at invokeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:182:13)\nJSON.parse(output).testRiskCoverage >= 6",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output to be valid JSON",
+              "assertion": {
+                "type": "is-json"
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Unexpected token 'T', \"Thinking: \"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token 'T', \"Thinking: \"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:16)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:452:13\n    at Object.eachOfLimit (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:478:36)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:220:25\nconst o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);",
+              "assertion": {
+                "type": "javascript",
+                "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Expected output to be valid JSON",
+              "assertion": {
+                "type": "is-json"
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Unexpected token 'T', \"Thinking: \"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token 'T', \"Thinking: \"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:13)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at iterateeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:431:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:328:20\n    at invokeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:182:13)\nJSON.parse(output).verdict === \"pass\"",
+              "assertion": {
+                "type": "javascript",
+                "value": "JSON.parse(output).verdict === \"pass\""
+              }
+            },
+            {
+              "pass": false,
+              "score": 0,
+              "reason": "Custom function threw error: Unexpected token 'T', \"Thinking: \"... is not valid JSON\nStack Trace: SyntaxError: Unexpected token 'T', \"Thinking: \"... is not valid JSON\n    at JSON.parse (<anonymous>)\n    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:13)\n    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)\n    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)\n    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:151:38\n    at replenish (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:447:21)\n    at iterateeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:431:21)\n    at E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:328:20\n    at invokeCallback (E:\\Projects\\git-repos\\llm-council\\node_modules\\async\\dist\\async.js:182:13)\nJSON.parse(output).testRiskCoverage >= 6",
+              "assertion": {
+                "type": "javascript",
+                "value": "JSON.parse(output).testRiskCoverage >= 6"
+              }
+            }
+          ]
+        },
+        "id": "10802d9f-107f-474b-bb3c-010c44d4dae4",
+        "latencyMs": 58574,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\ndiff --git a/src/core/types.ts b/src/core/types.ts\nindex 1111111..2222222 100644\n--- a/src/core/types.ts\n+++ b/src/core/types.ts\n@@ -3,6 +3,7 @@ export type CouncilModeId =\n   | \"decision\"\n   | \"idea\"\n   | \"criticalReview\"\n+  | \"brainstorm\"\n   | \"learning\"\n   | \"technical\"\n   | \"answer\"\ndiff --git a/tests/core/modes.test.ts b/tests/core/modes.test.ts\nindex 3333333..4444444 100644\n--- a/tests/core/modes.test.ts\n+++ b/tests/core/modes.test.ts\n@@ -20,4 +20,9 @@ describe(\"council modes\", () => {\n   it(\"exposes the decision mode\", () => {\n     expect(getMode(\"decision\").agents.length).toBeGreaterThan(0);\n   });\n+\n+  it(\"exposes the new brainstorm mode with a judge\", () => {\n+    const mode = getMode(\"brainstorm\");\n+    expect(mode.agents.some((a) => a.isFinalJudge)).toBe(true);\n+  });\n });",
+          "label": "tools\\ai-review\\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+          "config": {}
+        },
+        "promptId": "5f5dde4b5bdc53c68f563750db2a46fa353261df310368b2c840581d88447bc8",
+        "promptIdx": 1,
+        "provider": {
+          "id": "openrouter:poolside/laguna-m.1:free",
+          "label": "laguna"
+        },
+        "response": {
+          "output": "Thinking: \nLet me analyze this unified diff against the five specified dimensions.\n\nThe diff has two parts:\n1. Adding \"brainstorm\" to a union type in `src/core/types.ts`\n2. Adding a test in `tests/core/modes.test.ts` for the new brainstorm mode\n\nLet me evaluate each dimension:\n\n1. **implementationCorrectness** - The diff adds a new mode type and a test. The test checks that the brainstorm mode has agents and that at least one is a final judge. This seems correct for what it's trying to do, but I need to consider if there are edge cases. The test doesn't check if the mode exists or if it has any agents at all before checking for a judge. However, the implementation is just adding a type, so the correctness depends on whether the actual mode implementation exists elsewhere. Since we're only seeing this diff, I'll assume the mode implementation is complete. Score: 8/10\n\n2. **idiomaticity** - The change follows the existing pattern in the codebase. It adds to a union type in the same way other modes are defined, and the test follows the existing test structure. No use of `any` or other non-idiomatic patterns visible. Score: 9/10\n\n3. **simplicity** - This is a minimal change - just adding a type and a corresponding test. No unnecessary abstraction or complexity. Score: 9/10\n\n4. **testRiskCoverage** - The test covers the basic functionality but might be missing some edge cases. It doesn't test what happens if the mode doesn't exist, or if there are no agents, or if there's no judge. However, for a simple type addition, this might be sufficient. Score: 6/10\n\n5. **securitySafety** - This change doesn't appear to introduce any security concerns. It's just adding a new mode type and testing it. No authz, input validation, or secrets issues. Score: 10/10\n\nFor the verdict: No dimension is <= 3, securitySafety is 10 (> 5), and there don't appear to be any blocker findings. So the verdict should be \"pass\".\n\nLet me think about findings:\n- The test could be more robust by checking if the mode exists first\n- But this is a minor issue, not a blocker\n\nActually, looking more carefully at the test, it calls `getMode(\"brainstorm\")` without checking if it returns undefined. If `getMode` can return undefined for non-existent modes, this could cause a runtime error. But since we're adding the mode in the types, presumably the implementation supports it. Still, this is a potential risk.\n\nLet me reconsider the scores:\n- implementationCorrectness: 7 (the test might fail if getMode doesn't handle the new mode properly, but we can't tell from this diff alone)\n- idiomaticity: 9 (follows existing patterns)\n- simplicity: 9 (minimal change)\n- testRiskCoverage: 5 (the test has a potential issue - it doesn't check if the mode exists before accessing properties)\n- securitySafety: 10 (no security issues)\n\nWait, if testRiskCoverage is 5, that's still above 3, so it wouldn't cause a fail. But let me think if there are any other issues.\n\nActually, I think I'm overcomplicating this. The diff is very simple and clean. Let me go with:\n- implementationCorrectness: 8\n- idiomaticity: 9\n- simplicity: 9\n- testRiskCoverage: 6\n- securitySafety: 10\n- verdict: pass\n\n\n\n{\"implementationCorrectness\":8,\"idiomaticity\":9,\"simplicity\":9,\"testRiskCoverage\":6,\"securitySafety\":10,\"verdict\":\"pass\",\"summary\":\"Clean addition of brainstorm mode type and corresponding test. Test could be more defensive by checking mode existence before property access. No security concerns identified.\",\"findings\":[{\"severity\":\"minor\",\"file\":\"tests/core/modes.test.ts\",\"note\":\"Test calls getMode('brainstorm') without null/undefined check - could throw if mode not properly registered\"}]}\n",
+          "tokenUsage": {
+            "total": 1509,
+            "prompt": 625,
+            "completion": 884,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 774,
+              "cacheReadInputTokens": 6
+            }
+          },
+          "cached": false,
+          "finishReason": "stop"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "Clean feature with a matching test should pass",
+          "vars": {
+            "diff": "file://fixtures\\clean-feature.diff"
+          },
+          "assert": [
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+            },
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).verdict === \"pass\""
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).testRiskCoverage >= 6"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 1,
+        "tokenUsage": {
+          "prompt": 625,
+          "completion": 884,
+          "cached": 0,
+          "total": 1509,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 774,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 6,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "diff": "file://fixtures\\clean-feature.diff"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 1
+      },
+      {
+        "cost": 0,
+        "error": "API error: Provider returned error, Code: 504\n\n{\n  \"error\": {\n    \"message\": \"Provider returned error\",\n    \"code\": 504\n  }\n}",
+        "gradingResult": null,
+        "id": "4288bdfc-9cba-4524-8486-cc194e612503",
+        "latencyMs": 300518,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\ndiff --git a/src/core/types.ts b/src/core/types.ts\nindex 1111111..2222222 100644\n--- a/src/core/types.ts\n+++ b/src/core/types.ts\n@@ -3,6 +3,7 @@ export type CouncilModeId =\n   | \"decision\"\n   | \"idea\"\n   | \"criticalReview\"\n+  | \"brainstorm\"\n   | \"learning\"\n   | \"technical\"\n   | \"answer\"\ndiff --git a/tests/core/modes.test.ts b/tests/core/modes.test.ts\nindex 3333333..4444444 100644\n--- a/tests/core/modes.test.ts\n+++ b/tests/core/modes.test.ts\n@@ -20,4 +20,9 @@ describe(\"council modes\", () => {\n   it(\"exposes the decision mode\", () => {\n     expect(getMode(\"decision\").agents.length).toBeGreaterThan(0);\n   });\n+\n+  it(\"exposes the new brainstorm mode with a judge\", () => {\n+    const mode = getMode(\"brainstorm\");\n+    expect(mode.agents.some((a) => a.isFinalJudge)).toBe(true);\n+  });\n });",
+          "label": "tools\\ai-review\\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+          "config": {}
+        },
+        "promptId": "5f5dde4b5bdc53c68f563750db2a46fa353261df310368b2c840581d88447bc8",
+        "promptIdx": 0,
+        "provider": {
+          "id": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+          "label": "nemotron"
+        },
+        "response": {
+          "error": "API error: Provider returned error, Code: 504\n\n{\n  \"error\": {\n    \"message\": \"Provider returned error\",\n    \"code\": 504\n  }\n}"
+        },
+        "score": 0,
+        "success": false,
+        "testCase": {
+          "description": "Clean feature with a matching test should pass",
+          "vars": {
+            "diff": "file://fixtures\\clean-feature.diff"
+          },
+          "assert": [
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+            },
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).verdict === \"pass\""
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).testRiskCoverage >= 6"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 1,
+        "tokenUsage": {
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "total": 0,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "diff": "file://fixtures\\clean-feature.diff"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 2
+      },
+      {
+        "cost": 0,
+        "gradingResult": {
+          "pass": true,
+          "score": 1,
+          "reason": "All assertions passed",
+          "namedScores": {},
+          "tokensUsed": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 0
+          },
+          "componentResults": [
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "is-json"
+              }
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+              }
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "is-json"
+              }
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "JSON.parse(output).verdict === \"pass\""
+              }
+            },
+            {
+              "pass": true,
+              "score": 1,
+              "reason": "Assertion passed",
+              "assertion": {
+                "type": "javascript",
+                "value": "JSON.parse(output).testRiskCoverage >= 6"
+              }
+            }
+          ]
+        },
+        "id": "1eb5a9a1-a654-4927-b253-c4b7617412fd",
+        "latencyMs": 6468,
+        "namedScores": {},
+        "prompt": {
+          "raw": "You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\ndiff --git a/src/core/types.ts b/src/core/types.ts\nindex 1111111..2222222 100644\n--- a/src/core/types.ts\n+++ b/src/core/types.ts\n@@ -3,6 +3,7 @@ export type CouncilModeId =\n   | \"decision\"\n   | \"idea\"\n   | \"criticalReview\"\n+  | \"brainstorm\"\n   | \"learning\"\n   | \"technical\"\n   | \"answer\"\ndiff --git a/tests/core/modes.test.ts b/tests/core/modes.test.ts\nindex 3333333..4444444 100644\n--- a/tests/core/modes.test.ts\n+++ b/tests/core/modes.test.ts\n@@ -20,4 +20,9 @@ describe(\"council modes\", () => {\n   it(\"exposes the decision mode\", () => {\n     expect(getMode(\"decision\").agents.length).toBeGreaterThan(0);\n   });\n+\n+  it(\"exposes the new brainstorm mode with a judge\", () => {\n+    const mode = getMode(\"brainstorm\");\n+    expect(mode.agents.some((a) => a.isFinalJudge)).toBe(true);\n+  });\n });",
+          "label": "tools\\ai-review\\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.\nReview the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:\n\n1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?\n2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?\n3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.\n4. testRiskCoverage — are new/changed risky paths covered by a test?\n5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.\n\nVerdict rule: \"fail\" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise \"pass\".\n\nRespond with ONLY a single JSON object, no prose, no code fences:\n{\"implementationCorrectness\":<1-10>,\"idiomaticity\":<1-10>,\"simplicity\":<1-10>,\"testRiskCoverage\":<1-10>,\"securitySafety\":<1-10>,\"verdict\":\"pass\"|\"fail\",\"summary\":\"<2-3 sentence Markdown>\",\"findings\":[{\"severity\":\"blocker\"|\"major\"|\"minor\"|\"nit\",\"file\":\"<path>\",\"note\":\"<text>\"}]}\n\nReview this unified diff:\n\n{{diff}}",
+          "config": {}
+        },
+        "promptId": "5f5dde4b5bdc53c68f563750db2a46fa353261df310368b2c840581d88447bc8",
+        "promptIdx": 2,
+        "provider": {
+          "id": "openrouter:openrouter/owl-alpha",
+          "label": "owl-alpha"
+        },
+        "response": {
+          "output": "{\"implementationCorrectness\":8,\"idiomaticity\":9,\"simplicity\":10,\"testRiskCoverage\":7,\"securitySafety\":10,\"verdict\":\"pass\",\"summary\":\"The diff adds a `brainstorm` variant to the `CouncilModeId` union and a corresponding test asserting the mode exists and includes a judge agent. The change is minimal, type-safe, and follows repo conventions. Test coverage is adequate for the new path, though edge cases (e.g., invalid mode lookup) remain untested.\",\"findings\":[{\"severity\":\"minor\",\"file\":\"tests/core/modes.test.ts\",\"note\":\"Consider adding a test for unknown/invalid mode input to cover error paths.\"}]}",
+          "tokenUsage": {
+            "total": 831,
+            "prompt": 686,
+            "completion": 145,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0
+            }
+          },
+          "cached": false,
+          "finishReason": "stop"
+        },
+        "score": 1,
+        "success": true,
+        "testCase": {
+          "description": "Clean feature with a matching test should pass",
+          "vars": {
+            "diff": "file://fixtures\\clean-feature.diff"
+          },
+          "assert": [
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+            },
+            {
+              "type": "is-json"
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).verdict === \"pass\""
+            },
+            {
+              "type": "javascript",
+              "value": "JSON.parse(output).testRiskCoverage >= 6"
+            }
+          ],
+          "options": {},
+          "metadata": {}
+        },
+        "testIdx": 1,
+        "tokenUsage": {
+          "prompt": 686,
+          "completion": 145,
+          "cached": 0,
+          "total": 831,
+          "numRequests": 1,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          },
+          "assertions": {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "cached": 0,
+            "numRequests": 1,
+            "completionDetails": {
+              "reasoning": 0,
+              "acceptedPrediction": 0,
+              "rejectedPrediction": 0,
+              "cacheReadInputTokens": 0,
+              "cacheCreationInputTokens": 0
+            }
+          }
+        },
+        "vars": {
+          "diff": "file://fixtures\\clean-feature.diff"
+        },
+        "metadata": {
+          "_promptfooFileMetadata": {}
+        },
+        "failureReason": 0
+      }
+    ],
+    "stats": {
+      "successes": 1,
+      "failures": 3,
+      "errors": 2,
+      "tokenUsage": {
+        "prompt": 2536,
+        "completion": 2309,
+        "cached": 0,
+        "total": 4845,
+        "numRequests": 6,
+        "completionDetails": {
+          "reasoning": 1252,
+          "acceptedPrediction": 0,
+          "rejectedPrediction": 0,
+          "cacheReadInputTokens": 11,
+          "cacheCreationInputTokens": 0
+        },
+        "assertions": {
+          "total": 0,
+          "prompt": 0,
+          "completion": 0,
+          "cached": 0,
+          "numRequests": 0,
+          "completionDetails": {
+            "reasoning": 0,
+            "acceptedPrediction": 0,
+            "rejectedPrediction": 0,
+            "cacheReadInputTokens": 0,
+            "cacheCreationInputTokens": 0
+          }
+        }
+      },
+      "durationMs": 300747,
+      "evaluationDurationMs": 300747
+    }
+  },
+  "config": {
+    "tags": {},
+    "description": "AI code-review agent — model comparison & verdict regression gate",
+    "prompts": [
+      "file://E:\\Projects\\git-repos\\llm-council\\tools\\ai-review\\prompt.txt"
+    ],
+    "providers": [
+      {
+        "id": "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free",
+        "label": "nemotron"
+      },
+      {
+        "id": "openrouter:poolside/laguna-m.1:free",
+        "label": "laguna"
+      },
+      {
+        "id": "openrouter:openrouter/owl-alpha",
+        "label": "owl-alpha"
+      }
+    ],
+    "tests": [
+      {
+        "description": "SQL injection via string-built query must be rejected",
+        "vars": {
+          "diff": "file://fixtures/sql-injection.diff"
+        },
+        "assert": [
+          {
+            "type": "is-json"
+          },
+          {
+            "type": "javascript",
+            "value": "JSON.parse(output).verdict === \"fail\""
+          },
+          {
+            "type": "javascript",
+            "value": "JSON.parse(output).securitySafety <= 5"
+          },
+          {
+            "type": "llm-rubric",
+            "value": "The review flags SQL injection / unsafe string-built query as the reason to reject."
+          }
+        ]
+      },
+      {
+        "description": "Clean feature with a matching test should pass",
+        "vars": {
+          "diff": "file://fixtures/clean-feature.diff"
+        },
+        "assert": [
+          {
+            "type": "is-json"
+          },
+          {
+            "type": "javascript",
+            "value": "JSON.parse(output).verdict === \"pass\""
+          },
+          {
+            "type": "javascript",
+            "value": "JSON.parse(output).testRiskCoverage >= 6"
+          }
+        ]
+      }
+    ],
+    "env": {},
+    "defaultTest": {
+      "assert": [
+        {
+          "type": "is-json"
+        },
+        {
+          "type": "javascript",
+          "value": "const o = JSON.parse(output);\nreturn [\"implementationCorrectness\",\"idiomaticity\",\"simplicity\",\"testRiskCoverage\",\"securitySafety\"]\n  .every(k => Number.isInteger(o[k]) && o[k] >= 1 && o[k] <= 10);\n"
+        }
+      ],
+      "vars": {},
+      "options": {},
+      "metadata": {}
+    },
+    "outputPath": [
+      "tools/ai-review/eval-results.json",
+      "tools/ai-review/eval-results.csv"
+    ],
+    "extensions": [],
+    "metadata": {},
+    "evaluateOptions": {}
+  },
+  "shareableUrl": null,
+  "metadata": {
+    "promptfooVersion": "0.121.17",
+    "nodeVersion": "v24.14.0",
+    "platform": "win32",
+    "arch": "x64",
+    "exportedAt": "2026-06-19T20:34:09.527Z",
+    "evaluationCreatedAt": "2026-06-19T20:29:07.747Z"
+  },
+  "vars": [
+    "diff"
+  ],
+  "runtimeOptions": {
+    "eventSource": "cli",
+    "showProgressBar": true,
+    "repeat": 1,
+    "maxConcurrency": 4,
+    "cache": false
+  }
+}

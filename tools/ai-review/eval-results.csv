@@ -1,0 +1,192 @@
+Description,diff,"[nemotron] tools\ai-review\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.
+Review the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:
+
+1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?
+2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?
+3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.
+4. testRiskCoverage — are new/changed risky paths covered by a test?
+5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.
+
+Verdict rule: ""fail"" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise ""pass"".
+
+Respond with ONLY a single JSON object, no prose, no code fences:
+{""implementationCorrectness"":<1-10>,""idiomaticity"":<1-10>,""simplicity"":<1-10>,""testRiskCoverage"":<1-10>,""securitySafety"":<1-10>,""verdict"":""pass""|""fail"",""summary"":""<2-3 sentence Markdown>"",""findings"":[{""severity"":""blocker""|""major""|""minor""|""nit"",""file"":""<path>"",""note"":""<text>""}]}
+
+Review this unified diff:
+
+{{diff}}",Status,Score,Named Scores,Grader Reason,Comment,"[laguna] tools\ai-review\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.
+Review the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:
+
+1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?
+2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?
+3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.
+4. testRiskCoverage — are new/changed risky paths covered by a test?
+5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.
+
+Verdict rule: ""fail"" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise ""pass"".
+
+Respond with ONLY a single JSON object, no prose, no code fences:
+{""implementationCorrectness"":<1-10>,""idiomaticity"":<1-10>,""simplicity"":<1-10>,""testRiskCoverage"":<1-10>,""securitySafety"":<1-10>,""verdict"":""pass""|""fail"",""summary"":""<2-3 sentence Markdown>"",""findings"":[{""severity"":""blocker""|""major""|""minor""|""nit"",""file"":""<path>"",""note"":""<text>""}]}
+
+Review this unified diff:
+
+{{diff}}",Status,Score,Named Scores,Grader Reason,Comment,"[owl-alpha] tools\ai-review\prompt.txt: You are a senior code reviewer for a Next.js 16 + TypeScript (strict) modular-monolith project.
+Review the supplied unified git diff against EXACTLY these five dimensions, each scored 1-10:
+
+1. implementationCorrectness — does it do what the diff claims, with edge/error paths handled?
+2. idiomaticity — does it match repo conventions (Core stays UI-independent, errors via the core error taxonomy, no `any`)?
+3. simplicity — smallest change that solves it; penalise needless abstraction, dead branches, magic strings.
+4. testRiskCoverage — are new/changed risky paths covered by a test?
+5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.
+
+Verdict rule: ""fail"" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise ""pass"".
+
+Respond with ONLY a single JSON object, no prose, no code fences:
+{""implementationCorrectness"":<1-10>,""idiomaticity"":<1-10>,""simplicity"":<1-10>,""testRiskCoverage"":<1-10>,""securitySafety"":<1-10>,""verdict"":""pass""|""fail"",""summary"":""<2-3 sentence Markdown>"",""findings"":[{""severity"":""blocker""|""major""|""minor""|""nit"",""file"":""<path>"",""note"":""<text>""}]}
+
+Review this unified diff:
+
+{{diff}}",Status,Score,Named Scores,Grader Reason,Comment
+SQL injection via string-built query must be rejected,file://fixtures\sql-injection.diff,,ERROR,0.00,,,,"Thinking: 
+Let me analyze this diff carefully against the five dimensions:
+
+1. **implementationCorrectness**: The code adds a free-text search feature. However, there's a critical issue - the original code that lists conversations (`const list = await storage.list(session.user.id)`) is now unreachable because it comes after a return statement. This is a major bug - the new code returns early and the original functionality is broken. Also, the SQL query is vulnerable to SQL injection.
+
+2. **idiomaticity**: 
+   - Uses raw SQL instead of the existing `storage.list()` pattern - not following repo conventions
+   - No use of core error taxonomy (just returns generic error)
+   - The `db.raw(sql)` suggests bypassing any ORM/core data access patterns
+   - Magic string SQL query
+
+3. **simplicity**: 
+   - The change is relatively simple in concept but introduces a critical bug (unreachable code)
+   - Uses raw SQL which is more complex than it needs to be
+   - The unreachable code makes it not the ""smallest change that solves it""
+
+4. **testRiskCoverage**: 
+   - No tests are added for this new functionality
+   - The SQL injection vulnerability is a high-risk path that's not covered
+   - No indication of test changes
+
+5. **securitySafety**: 
+   - **CRITICAL**: SQL injection vulnerability - user input `q` is directly interpolated into SQL without sanitization
+   - The `session.user.id` is also interpolated directly, though it comes from auth, it's still not parameterized
+   - This is a major security issue
+
+**Blocker finding**: The SQL injection vulnerability is a blocker. Also, the unreachable code after the return statement is a major bug.
+
+Let me score each dimension:
+- implementationCorrectness: 2 (unreachable code breaks original functionality, SQL injection)
+- idiomaticity: 3 (doesn't follow existing patterns, uses raw SQL)
+- simplicity: 4 (introduces unnecessary complexity with raw SQL, and has dead code)
+- testRiskCoverage: 1 (no tests for new risky functionality)
+- securitySafety: 1 (severe SQL injection vulnerability)
+
+Verdict: ""fail"" (multiple dimensions <= 3, securitySafety <= 5, and blocker findings)
+
+
+
+{""implementationCorrectness"":2,""idiomaticity"":3,""simplicity"":4,""testRiskCoverage"":1,""securitySafety"":1,""verdict"":""fail"",""summary"":""Critical SQL injection vulnerability introduced with unsanitized user input in raw query. Original conversation listing functionality is now unreachable due to early return, breaking existing behavior."",""findings"":[{""severity"":""blocker"",""file"":""src/app/api/conversations/route.ts"",""note"":""SQL injection vulnerability: user-supplied 'q' parameter directly interpolated into raw SQL query without sanitization or parameterization""},{""severity"":""blocker"",""file"":""src/app/api/conversations/route.ts"",""note"":""Unreachable code: original storage.list() call is now dead code after the new return statement, breaking existing conversation listing functionality""},{""severity"":""major"",""file"":""src/app/api/conversations/route.ts"",""note"":""Non-idiomatic: bypasses existing storage abstraction in favor of raw SQL queries, violating modular monolith patterns""},{""severity"":""major"",""file"":""src/app/api/conversations/route.ts"",""note"":""No test coverage for new search functionality or SQL injection attack vectors""},{""severity"":""minor"",""file"":""src/app/api/conversations/route.ts"",""note"":""Magic string SQL query instead of using parameterized queries or existing data access patterns""}]}
+",FAIL,0.00,,Error calling OpenAI Codex SDK: Failed to parse item: SUCCESS: The process with PID 12516 (child process of PID 18324) has been terminated.,,"```json
+{
+  ""implementationCorrectness"": 2,
+  ""idiomaticity"": 2,
+  ""simplicity"": 3,
+  ""testRiskCoverage"": 1,
+  ""securitySafety"": 1,
+  ""verdict"": ""fail"",
+  ""summary"": ""The diff introduces a raw SQL query with string interpolation of user-supplied input (`q`) directly into the SQL string, creating a critical SQL injection vulnerability. It also bypasses the existing `storage.list()` abstraction, uses `db.raw()` instead of the repository pattern, and has zero test coverage for the new path."",
+  ""findings"": [
+    {
+      ""severity"": ""blocker"",
+      ""file"": ""src/app/api/conversations/route.ts"",
+      ""note"": ""SQL injection: user-supplied `q` is interpolated directly into the SQL string via template literal (`'%${q}%'`). An attacker can exfiltrate or destroy arbitrary data. Must use parameterized queries.""
+    },
+    {
+      ""severity"": ""blocker"",
+      ""file"": ""src/app/api/conversations/route.ts"",
+      ""note"": ""The new code path completely replaces the existing `storage.list()` call, meaning the original listing functionality is silently removed/dead code. The diff claims to add search but actually overwrites behavior.""
+    },
+    {
+      ""severity"": ""major"",
+      ""file"": ""src/app/api/conversations/route.ts"",
+      ""note"": ""Uses `db.raw()` with raw SQL instead of the repository/storage abstraction layer, violating the modular-monolith convention that Core stays UI-independent and data access goes through defined storage interfaces.""
+    },
+    {
+      ""severity"": ""major"",
+      ""file"": ""src/app/api/conversations/route.ts"",
+      ""note"": ""No input validation or sanitization on the `q` parameter — no length limits, no character filtering, no max-result pagination, enabling abuse via extremely long strings or wildcard-heavy queries.""
+    },
+    {
+      ""severity"": ""major"",
+      ""file"": ""src/app/api/conversations/route.ts"",
+      ""note"": ""No tests cover the new search path, the SQL injection vector, or the behavioral change to the GET handler.""
+    },
+    {
+      ""severity"": ""minor"",
+      ""file"": ""src/app/api/conversations/route.ts"",
+      ""note"": ""The `?? \""\""` default for `q` means an empty search returns all conversations (via `LIKE '%%'`), which may be an unintended full-table scan with no pagination.""
+    }
+  ]
+}
+```",FAIL,0.00,,Error calling OpenAI Codex SDK: Failed to parse item: SUCCESS: The process with PID 23756 (child process of PID 22880) has been terminated.,
+Clean feature with a matching test should pass,file://fixtures\clean-feature.diff,,ERROR,0.00,,,,"Thinking: 
+Let me analyze this unified diff against the five specified dimensions.
+
+The diff has two parts:
+1. Adding ""brainstorm"" to a union type in `src/core/types.ts`
+2. Adding a test in `tests/core/modes.test.ts` for the new brainstorm mode
+
+Let me evaluate each dimension:
+
+1. **implementationCorrectness** - The diff adds a new mode type and a test. The test checks that the brainstorm mode has agents and that at least one is a final judge. This seems correct for what it's trying to do, but I need to consider if there are edge cases. The test doesn't check if the mode exists or if it has any agents at all before checking for a judge. However, the implementation is just adding a type, so the correctness depends on whether the actual mode implementation exists elsewhere. Since we're only seeing this diff, I'll assume the mode implementation is complete. Score: 8/10
+
+2. **idiomaticity** - The change follows the existing pattern in the codebase. It adds to a union type in the same way other modes are defined, and the test follows the existing test structure. No use of `any` or other non-idiomatic patterns visible. Score: 9/10
+
+3. **simplicity** - This is a minimal change - just adding a type and a corresponding test. No unnecessary abstraction or complexity. Score: 9/10
+
+4. **testRiskCoverage** - The test covers the basic functionality but might be missing some edge cases. It doesn't test what happens if the mode doesn't exist, or if there are no agents, or if there's no judge. However, for a simple type addition, this might be sufficient. Score: 6/10
+
+5. **securitySafety** - This change doesn't appear to introduce any security concerns. It's just adding a new mode type and testing it. No authz, input validation, or secrets issues. Score: 10/10
+
+For the verdict: No dimension is <= 3, securitySafety is 10 (> 5), and there don't appear to be any blocker findings. So the verdict should be ""pass"".
+
+Let me think about findings:
+- The test could be more robust by checking if the mode exists first
+- But this is a minor issue, not a blocker
+
+Actually, looking more carefully at the test, it calls `getMode(""brainstorm"")` without checking if it returns undefined. If `getMode` can return undefined for non-existent modes, this could cause a runtime error. But since we're adding the mode in the types, presumably the implementation supports it. Still, this is a potential risk.
+
+Let me reconsider the scores:
+- implementationCorrectness: 7 (the test might fail if getMode doesn't handle the new mode properly, but we can't tell from this diff alone)
+- idiomaticity: 9 (follows existing patterns)
+- simplicity: 9 (minimal change)
+- testRiskCoverage: 5 (the test has a potential issue - it doesn't check if the mode exists before accessing properties)
+- securitySafety: 10 (no security issues)
+
+Wait, if testRiskCoverage is 5, that's still above 3, so it wouldn't cause a fail. But let me think if there are any other issues.
+
+Actually, I think I'm overcomplicating this. The diff is very simple and clean. Let me go with:
+- implementationCorrectness: 8
+- idiomaticity: 9
+- simplicity: 9
+- testRiskCoverage: 6
+- securitySafety: 10
+- verdict: pass
+
+
+
+{""implementationCorrectness"":8,""idiomaticity"":9,""simplicity"":9,""testRiskCoverage"":6,""securitySafety"":10,""verdict"":""pass"",""summary"":""Clean addition of brainstorm mode type and corresponding test. Test could be more defensive by checking mode existence before property access. No security concerns identified."",""findings"":[{""severity"":""minor"",""file"":""tests/core/modes.test.ts"",""note"":""Test calls getMode('brainstorm') without null/undefined check - could throw if mode not properly registered""}]}
+",FAIL,0.00,,"Custom function threw error: Unexpected token 'T', ""Thinking: ""... is not valid JSON
+Stack Trace: SyntaxError: Unexpected token 'T', ""Thinking: ""... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at eval (eval at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:34), <anonymous>:3:13)
+    at handleJavascript (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:2211:92)
+    at runAssertion (file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5056:24)
+    at file:///E:/Projects/git-repos/llm-council/node_modules/promptfoo/dist/src/evaluator-CM_f4JnS.js:5155:24
+    at E:\Projects\git-repos\llm-council\node_modules\async\dist\async.js:151:38
+    at replenish (E:\Projects\git-repos\llm-council\node_modules\async\dist\async.js:447:21)
+    at iterateeCallback (E:\Projects\git-repos\llm-council\node_modules\async\dist\async.js:431:21)
+    at E:\Projects\git-repos\llm-council\node_modules\async\dist\async.js:328:20
+    at invokeCallback (E:\Projects\git-repos\llm-council\node_modules\async\dist\async.js:182:13)
+JSON.parse(output).testRiskCoverage >= 6",,"{""implementationCorrectness"":8,""idiomaticity"":9,""simplicity"":10,""testRiskCoverage"":7,""securitySafety"":10,""verdict"":""pass"",""summary"":""The diff adds a `brainstorm` variant to the `CouncilModeId` union and a corresponding test asserting the mode exists and includes a judge agent. The change is minimal, type-safe, and follows repo conventions. Test coverage is adequate for the new path, though edge cases (e.g., invalid mode lookup) remain untested."",""findings"":[{""severity"":""minor"",""file"":""tests/core/modes.test.ts"",""note"":""Consider adding a test for unknown/invalid mode input to cover error paths.""}]}",PASS,1.00,,All assertions passed,

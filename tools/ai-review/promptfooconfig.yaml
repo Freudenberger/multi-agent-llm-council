@@ -10,6 +10,12 @@
 
 description: AI code-review agent — model comparison & verdict regression gate
 
+# Three free OpenRouter models compared side-by-side. This is deliberately a
+# free-tier comparison: the matrix itself documents how unreliable free tiers are
+# for a strict JSON contract — some return 504s, some leak "Thinking:" reasoning
+# text instead of pure JSON, and only some pass the is-json gate. For a CI gate
+# you'd override with a paid-but-cheap structured-output model:
+#   promptfoo eval -c … --providers openrouter:openai/gpt-4o-mini
 providers:
   - id: openrouter:nvidia/nemotron-3-ultra-550b-a55b:free
     label: nemotron
@@ -18,7 +24,8 @@ providers:
   - id: openrouter:openrouter/owl-alpha
     label: owl-alpha
 
-prompt: file://prompt.txt
+prompts:
+  - file://prompt.txt
 
 tests:
   # A diff that builds SQL by string interpolation from a query param → must FAIL on security.
