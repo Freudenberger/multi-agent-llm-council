@@ -16,7 +16,8 @@
 name: AI Code Review
 
 on:
-  # Uncomment to review every PR automatically (this is the badge-evidence path):
+  # Reviews every PR automatically. v1 has a deterministic mock fallback, so this
+  # runs even without a key (the v2 workflow is the real-SDK badge-evidence path).
   # pull_request:
   #   types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -57,8 +58,8 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           LLM_PROVIDER: ${{ secrets.OPENROUTER_API_KEY && 'openrouter' || 'mock' }}
           # Set an OPENROUTER_MODEL repo variable for a JSON-reliable model
-          # (Settings → Secrets and variables → Actions → Variables). Falls back to free.
-          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openrouter/free' }}
+          # (Settings → Secrets and variables → Actions → Variables).
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openai/gpt-4o-mini' }}
         run: |
           # On a PR, diff the PR's base→head SHAs (both present thanks to fetch-depth: 0).
           # On a manual run, there is no PR, so review the last commit (or the chosen base).
