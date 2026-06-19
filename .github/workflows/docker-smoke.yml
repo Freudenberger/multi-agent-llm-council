@@ -1,0 +1,64 @@
+# Smoke-test the PUBLISHED image: pull it from Docker Hub, run it, and curl
+# /api/health. Verifies the artifact that actually shipped — separate from the
+# build pipeline. Manual trigger; pick the tag to test (defaults to latest).
+#
+# Required repo secrets: DOCKERHUB_USERNAME (+ DOCKERHUB_TOKEN if the repo is private
+# or you hit anonymous pull-rate limits).
+
+name: Docker Image Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to pull & test from Docker Hub"
+        required: false
+        default: "latest"
+
+env:
+  IMAGE_NAME: llm-council
+
+jobs:
+  pull-run-curl:
+    name: Pull, run & curl
+    runs-on: ubuntu-latest
+    # The secrets context isn't usable in `if:` directly — map it to an env flag.
+    env:
+      HAS_TOKEN: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+    steps:
+      # Login is optional for public images but avoids anonymous pull-rate limits.
+      - name: Log in to Docker Hub
+        if: env.HAS_TOKEN == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull, run & curl /api/health
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.event.inputs.tag }}"
+          echo "Pulling $IMAGE"
+          docker pull "$IMAGE"
+
+          docker run -d --name council -p 3000:3000 \
+            -e LLM_PROVIDER=mock \
+            -e DB_PROVIDER=local \
+            -e AUTH_SECRET=ci-smoke-secret-not-used-in-production \
+            "$IMAGE"
+
+          OK=
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/api/health; then
+              echo; echo "✅ /api/health responded"; OK=1; break
+            fi
+            echo "… waiting for the server (attempt $i)"; sleep 2
+          done
+
+          echo "----- container logs -----"
+          docker logs council || true
+          docker rm -f council >/dev/null 2>&1 || true
+
+          if [ -z "$OK" ]; then
+            echo "❌ published image never became healthy" >&2
+            exit 1
+          fi
