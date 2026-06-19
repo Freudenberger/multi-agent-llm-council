@@ -1,0 +1,34 @@
+# Build artifacts & deps — restored inside the image.
+node_modules
+.next
+.next-e2e
+out
+coverage
+test-results
+playwright-report
+
+# Local env & secrets — never bake into the image.
+.env
+.env.*
+!.env.example
+
+# VCS / CI / editor
+.git
+.github
+.husky
+.vscode
+.idea
+
+# Tests & E2E (not needed in the runtime image)
+tests/e2e/node_modules
+tests/e2e/playwright-report
+tests/e2e/test-results
+
+# Misc
+*.log
+npm-debug.log*
+.DS_Store
+README.md
+docs
+context
+tools/ai-review/eval-results.*
