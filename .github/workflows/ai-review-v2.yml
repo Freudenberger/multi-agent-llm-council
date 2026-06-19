@@ -17,9 +17,9 @@
 name: AI Code Review v2
 
 on:
-  # Uncomment to review every PR automatically (this is the badge-evidence path):
-  # pull_request:
-  #   types: [opened, synchronize, reopened]
+  # Reviews every PR automatically (this is the badge-evidence path):
+  pull_request:
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
     inputs:
       base:
@@ -57,7 +57,7 @@ jobs:
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           # v2 needs a structured-output model; default to a reliable one (free models stall).
-          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openrouter/free' }}
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openai/gpt-4o-mini' }}
         run: |
           # v2 has no mock fallback — without a key there is nothing to run.
           if [ -z "$OPENROUTER_API_KEY" ]; then
