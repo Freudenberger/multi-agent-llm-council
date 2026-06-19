@@ -151,6 +151,65 @@ npm run council -- --mode decision "Should I learn Rust or Go?"
 npm test
 ```
 
+## Docker
+
+The app ships as a self-contained image built from the multi-stage [Dockerfile](Dockerfile) (Next.js `standalone` output, runs non-root). Run it locally:
+
+```bash
+docker build -t llm-council .
+docker run --rm -p 3000:3000 \
+  -e LLM_PROVIDER=mock \
+  -e DB_PROVIDER=local \
+  -e AUTH_SECRET=please-change-me \
+  llm-council
+# health check:
+curl http://localhost:3000/api/health   # → {"status":"ok",...}
+```
+
+`/api/health` is a dependency-free liveness probe (no DB / LLM / auth) used by the container `HEALTHCHECK` and the CI smoke tests.
+
+Two **manually-triggered** (`workflow_dispatch`) GitHub Actions back the image:
+
+- **[Docker Build & Push](.github/workflows/docker-build.yml)** — builds the image, smoke-tests it (runs the container + curls `/api/health`), and **only pushes to Docker Hub if the test passes**.
+- **[Docker Image Smoke Test](.github/workflows/docker-smoke.yml)** — pulls the published image back from Docker Hub, runs it, and curls `/api/health` to verify the artifact that actually shipped.
+
+Required repo secrets (Settings → Secrets and variables → Actions): `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`.
+
+### Versioning & releasing
+
+`package.json` is the single source of truth for the image version. Each build is tagged three ways:
+
+| Tag                       | Meaning                                  |
+| ------------------------- | ---------------------------------------- |
+| `latest`                  | newest build of the default branch       |
+| `<version>` (e.g. `0.1.0`)| the `package.json` version               |
+| `sha-<short>`             | the exact commit (always immutable)      |
+
+Releases are driven by **Conventional Commits** via [`commit-and-tag-version`](https://github.com/absolute-version/commit-and-tag-version). The bump level is derived from commit history — no manual choosing:
+
+| Commit type             | Bump  |
+| ----------------------- | ----- |
+| `fix: …`                | patch |
+| `feat: …`               | minor |
+| `feat!:` / `BREAKING CHANGE:` | major |
+
+> **One-time:** `feat → minor` only applies once the project is `≥ 1.0.0`. Below that, the preset treats every `feat` as a patch. Bootstrap to a stable major once, then it's fully automatic:
+>
+> ```bash
+> npm run release -- --release-as major   # 0.1.0 → 1.0.0 (do this once, after committing pending work)
+> ```
+
+To cut a release after that:
+
+```bash
+npm run release            # reads commits, bumps package.json + package-lock, writes CHANGELOG.md, tags v<version>
+npm run release:dry        # preview the bump + changelog without writing anything
+git push --follow-tags
+# then run the "Docker Build & Push" workflow → publishes llm-council:<version> + latest
+```
+
+`npm run release` makes the commit + tag for you, so cut a release for each meaningful change — that keeps the `<version>` image tag immutable per release (a manual build without a release overwrites the existing `<version>` tag with current `main`; the `sha-<short>` tag is always unique regardless).
+
 ## Architecture
 
 The project is a **modular monolith** — a single deployable Next.js application with clear internal boundaries:

@@ -23,6 +23,8 @@
     "test:e2e:ui": "npm --prefix tests/e2e run test:ui",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
+    "release": "commit-and-tag-version",
+    "release:dry": "commit-and-tag-version --dry-run",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -48,6 +50,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.1.8",
+    "commit-and-tag-version": "^12.7.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "husky": "^9.1.7",
