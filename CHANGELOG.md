@@ -2,6 +2,17 @@
 
 All notable changes are generated from Conventional Commits by `npm run release`.
 
+## [0.1.2](https://github.com/Freudenberger/multi-agent-llm-council/compare/v0.1.1...v0.1.2) (2026-06-20)
+
+
+### Features
+
+* **auth:** enable trustHost for reverse proxy support ([1d5283c](https://github.com/Freudenberger/multi-agent-llm-council/commit/1d5283c0e277fa8131b9fbc282c72834fbd81ba2))
+* **auth:** implement dynamic AUTH_SECRET resolution ([e63759f](https://github.com/Freudenberger/multi-agent-llm-council/commit/e63759fcb7002e4d45191689a065d2ead8572b83))
+* **docker:** enable standalone build with BUILD_STANDALONE=true ([28937e8](https://github.com/Freudenberger/multi-agent-llm-council/commit/28937e88fa1ad91a2f1beaa6bb3d686449de25f9))
+* **provider:** implement bring-your-own-key support ([cf664ce](https://github.com/Freudenberger/multi-agent-llm-council/commit/cf664cea392c83df5028c2519c4f437bda177b38))
+* **workflow:** add build-test-deploy and deploy workflows ([c6daabb](https://github.com/Freudenberger/multi-agent-llm-council/commit/c6daabb51b53aa3f21b69648c0918802813989d2))
+
 ## 0.1.1 (2026-06-20)
 
 
