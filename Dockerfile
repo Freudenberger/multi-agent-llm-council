@@ -11,7 +11,11 @@ COPY package.json package-lock.json ./
 # install scripts download browsers / build native binaries and FAIL on alpine
 # (musl). None are needed to build or run the app: Next/SWC/sharp/esbuild resolve
 # their prebuilt platform packages from the lockfile without any install script.
-RUN npm ci --ignore-scripts
+#
+# Pin npm to the major version that generated package-lock.json (v11). node:22-alpine
+# ships npm 10, which resolves the transitive tree differently (e.g. gcp-metadata,
+# @swc/helpers) and makes `npm ci` reject the lockfile as out of sync.
+RUN npm i -g npm@11 && npm ci --ignore-scripts
 
 # ---- builder: produce the standalone Next.js output ----
 FROM node:22-alpine AS builder
