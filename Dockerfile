@@ -6,23 +6,29 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# --ignore-scripts: skip postinstall scripts. Dev-only tooling (promptfoo) pulls
+# @playwright/browser-chromium, onnxruntime-node, sharp, @napi-rs/canvas — whose
+# install scripts download browsers / build native binaries and FAIL on alpine
+# (musl). None are needed to build or run the app: Next/SWC/sharp/esbuild resolve
+# their prebuilt platform packages from the lockfile without any install script.
+RUN npm ci --ignore-scripts
 
 # ---- builder: produce the standalone Next.js output ----
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Build-time only — dummy values. Real secrets are supplied at runtime, never baked in.
+# Non-secret build-time env. Real secrets are supplied at runtime, never baked in.
 ENV NEXT_TELEMETRY_DISABLED=1 \
     NODE_ENV=production \
     LLM_PROVIDER=mock \
-    DB_PROVIDER=local \
-    AUTH_SECRET=build-time-placeholder-not-used-at-runtime
+    DB_PROVIDER=local
 ARG APP_VERSION=0.0.0
 ARG GIT_SHA=unknown
 ENV APP_VERSION=$APP_VERSION GIT_SHA=$GIT_SHA
-RUN npm run build
+# AUTH_SECRET only needs to exist during the build (NextAuth init); pass it inline
+# so it isn't persisted in an image layer — avoids the SecretsUsedInArgOrEnv lint.
+RUN AUTH_SECRET=build-time-placeholder-not-used-at-runtime npm run build
 
 # ---- runner: minimal runtime image ----
 FROM node:22-alpine AS runner
