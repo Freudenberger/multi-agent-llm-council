@@ -81,7 +81,7 @@ The 10xDevs course defines four signals of an "agent-friendly" stack: **typed, c
 
 - `LLMProvider` interface ([src/providers/types.ts](../src/providers/types.ts)).
 - **OpenRouter** — single provider implementation reaching ~100+ models; per-agent model override.
-- **Mock provider** — used when `LLM_PROVIDER=mock`; required for the demo / no-key reviewer path and for all tests.
+- **Mock provider** — used when `LLM_PROVIDER=mock`; required for the demo / no-key reviewer path and for all tests. It simulates a real LLM rather than returning fixed strings: it detects the request shape (specialist / report judge / answer judge / peer review / discussion turn / discussion summary / code review), extracts the actual question or topic from the prompt, and composes a contextual, role-flavoured reply. Output is **deterministic** (seeded by the request, no `Math.random`) so it is snapshot-safe, yet varies across questions and roles. For tests needing full control, `setMockResponder` (script/force-fail/defer per call), `setMockLatency`, and `resetMockProvider` are exported from [src/providers](../src/providers/index.ts).
 - Retry with exponential backoff (configurable via `LLM_MAX_RETRIES`, `LLM_RETRY_BASE_DELAY`).
 - AbortController timeout (configurable via `LLM_REQUEST_TIMEOUT`).
 - Errors are normalized to `ProviderRetryError` / `ProviderTimeoutError` so the API route can map them to 503 / 504.

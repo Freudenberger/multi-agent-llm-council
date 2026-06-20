@@ -2,6 +2,15 @@ import type { LLMProvider, RetryConfig, TimeoutConfig } from "./types";
 import { MockProvider } from "./mockProvider";
 import { OpenRouterProvider } from "./openRouterProvider";
 
+// Re-export the mock test hooks so tests can script/reset the mock provider
+// without reaching into the file directly.
+export {
+  setMockResponder,
+  resetMockProvider,
+  setMockLatency,
+  type MockResponder,
+} from "./mockProvider";
+
 /**
  * Factory function to create the appropriate LLM provider based on environment config.
  *
