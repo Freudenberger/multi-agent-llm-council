@@ -10,6 +10,11 @@ const credentialsSchema = z.object({
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Self-hosted behind a reverse proxy (Render, Docker). Auth.js otherwise
+  // infers the request host from the internal address (e.g. localhost:10000)
+  // and rejects it with `UntrustedHost`; trusting the proxy's forwarded host
+  // makes session/callback URLs resolve to the real public origin.
+  trustHost: true,
   providers: [
     Credentials({
       name: "credentials",
