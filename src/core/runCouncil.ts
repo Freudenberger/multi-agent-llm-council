@@ -274,6 +274,7 @@ async function runAgent(
   model?: string,
   onProgress?: RunCouncilInput["onProgress"],
   signal?: AbortSignal,
+  providerOverride?: RunCouncilInput["providerOverride"],
 ): Promise<AgentResponse> {
   const agentStart = performance.now();
   onProgress?.({ type: "agent_started", agentId: agent.id });
@@ -285,8 +286,11 @@ async function runAgent(
       model: model ?? "default",
     });
 
-    // Use per-agent model if specified, otherwise fall back to shared provider
-    const agentProvider = model ? createProvider(model) : provider;
+    // Use per-agent model if specified, otherwise fall back to shared provider.
+    // Pass the user's provider override so a per-agent-model provider uses it too.
+    const agentProvider = model
+      ? createProvider(model, undefined, undefined, providerOverride)
+      : provider;
 
     const temperature = 0.7;
     const maxTokens = agent.isFinalJudge ? 16_384 : 2048;
@@ -410,6 +414,7 @@ async function runSpecialists(
             agent.model,
             input.onProgress,
             input.signal,
+            input.providerOverride,
           ),
         ),
       ),
@@ -476,6 +481,7 @@ async function runPeerReview(
             // "done" from Phase 1, and re-emitting would flip them to running.
             undefined,
             input.signal,
+            input.providerOverride,
           ),
         ),
       ),
@@ -582,6 +588,7 @@ async function runJudge(
             finalJudge.model,
             input.onProgress,
             input.signal,
+            input.providerOverride,
           ),
         { runId, phase: "final-judge" },
       );
@@ -731,7 +738,14 @@ export async function runCouncil(
     judge: getFinalJudge(mode) ? toAgentMeta(getFinalJudge(mode)!) : null,
   });
 
-  const provider = createProvider();
+  // Shared provider for the run. input.providerOverride (the user's own key +
+  // provider, when present) overrides LLM_PROVIDER so the run hits live LLMs.
+  const provider = createProvider(
+    undefined,
+    undefined,
+    undefined,
+    input.providerOverride,
+  );
 
   // Phase 1
   throwIfAborted(input.signal);

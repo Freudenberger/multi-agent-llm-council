@@ -1,5 +1,7 @@
 /** Core types for the Multi-Agent LLM Council */
 
+import type { ProviderOverride } from "../providers/types";
+
 export type CouncilModeId =
   | "decision"
   | "idea"
@@ -102,6 +104,14 @@ export type RunCouncilInput = {
    * models. When empty/omitted, those agents use the provider default.
    */
   fallbackModels?: string[];
+  /**
+   * Optional bring-your-own-key provider override — typically the signed-in
+   * user's own API key plus the provider it belongs to. When provided, every
+   * provider call in this run uses that provider with the user's key, overriding
+   * the env `LLM_PROVIDER` (so a user with their own key gets live LLMs even on a
+   * `mock` demo instance). When omitted, the env-configured provider is used.
+   */
+  providerOverride?: ProviderOverride;
   /**
    * When true, the orchestrator inserts a peer-review/ranking phase between the
    * specialists and the judge: each specialist evaluates the other (anonymized)
@@ -225,6 +235,12 @@ export type RunDiscussionInput = {
    * model is assigned one at random from this list (stable for the whole run).
    */
   fallbackModels?: string[];
+  /**
+   * Optional bring-your-own-key provider override (the user's own key + its
+   * provider id). When provided, the discussion uses that provider with the
+   * user's key, overriding `LLM_PROVIDER`.
+   */
+  providerOverride?: ProviderOverride;
   /** Optional caller-supplied run id; also becomes the result id. */
   runId?: string;
   /** Optional callback invoked as the discussion progresses. */

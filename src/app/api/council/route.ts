@@ -11,6 +11,8 @@ import {
 import { z } from "zod";
 import { auth } from "@/auth/config";
 import { userStorage } from "@/auth/userStorage";
+import { resolveProviderOverride } from "@/auth/providerOverride";
+import type { ProviderOverride } from "@/providers/types";
 import { createStorage } from "@/storage";
 
 const customAgentSchema = z.object({
@@ -158,9 +160,13 @@ export async function POST(request: NextRequest) {
   // from, and we reuse the same session below to persist the conversation.
   const session = await auth();
   let fallbackModels: string[] | undefined;
+  // The user's own provider key (when saved): forces live LLMs for this run,
+  // overriding LLM_PROVIDER=mock.
+  let providerOverride: ProviderOverride | undefined;
   if (session?.user?.id) {
     const user = await userStorage.findById(session.user.id);
     fallbackModels = user?.preferredModels;
+    providerOverride = resolveProviderOverride(user?.providerSettings);
   }
 
   // Run the council and stream progress + the final result as NDJSON.
@@ -192,6 +198,7 @@ export async function POST(request: NextRequest) {
           customAgents: validation.data.customAgents,
           peerReview: validation.data.peerReview,
           fallbackModels,
+          providerOverride,
           signal: ac.signal,
           onProgress: (event) => send({ kind: "progress", event }),
         });

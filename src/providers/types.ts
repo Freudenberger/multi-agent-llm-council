@@ -19,6 +19,18 @@ export type LLMProvider = {
 };
 
 /**
+ * A bring-your-own-key override: a caller-supplied API key together with the id
+ * of the provider it belongs to (e.g. `{ providerId: "openrouter", apiKey }`).
+ * When present, `createProvider` builds that specific provider with this key,
+ * overriding the env `LLM_PROVIDER`. `providerId` must match a key in the
+ * provider registry; adding a new provider makes BYOK work for it automatically.
+ */
+export type ProviderOverride = {
+  providerId: string;
+  apiKey: string;
+};
+
+/**
  * Retry configuration for LLM provider calls.
  *
  * Environment variables:

@@ -142,6 +142,7 @@ async function runTurn(
   index: number,
   participantNames: string[],
   signal: AbortSignal | undefined,
+  providerOverride: RunDiscussionInput["providerOverride"],
 ): Promise<{ turn: DiscussionTurn; durationMs: number }> {
   const start = performance.now();
   const systemPrompt = buildDiscussionSystemPrompt(agent, participantNames);
@@ -153,8 +154,11 @@ async function runTurn(
     totalRounds,
   );
 
-  // Per-agent model if specified, otherwise the shared provider.
-  const provider = agent.model ? createProvider(agent.model) : sharedProvider;
+  // Per-agent model if specified, otherwise the shared provider. The user's
+  // provider override (when present) is forwarded so a per-agent model uses it too.
+  const provider = agent.model
+    ? createProvider(agent.model, undefined, undefined, providerOverride)
+    : sharedProvider;
 
   try {
     // Re-generate when the model returns a degenerate reply (empty, trivially
@@ -301,11 +305,14 @@ async function runSummary(
   topic: string,
   transcript: DiscussionTurn[],
   signal: AbortSignal | undefined,
+  providerOverride: RunDiscussionInput["providerOverride"],
 ): Promise<{ summary: DiscussionSummary; durationMs: number }> {
   const start = performance.now();
   const systemPrompt = buildDiscussionSummarySystemPrompt(agent);
   const userMessage = buildDiscussionSummaryUserMessage(topic, transcript);
-  const provider = agent.model ? createProvider(agent.model) : sharedProvider;
+  const provider = agent.model
+    ? createProvider(agent.model, undefined, undefined, providerOverride)
+    : sharedProvider;
 
   try {
     let result;
@@ -463,7 +470,14 @@ export async function runDiscussion(
     rounds: totalRounds,
   });
 
-  const provider = createProvider();
+  // input.providerOverride (the user's own key + provider, when present)
+  // overrides LLM_PROVIDER so the discussion hits live LLMs.
+  const provider = createProvider(
+    undefined,
+    undefined,
+    undefined,
+    input.providerOverride,
+  );
   const transcript: DiscussionTurn[] = [];
   let index = 0;
 
@@ -486,6 +500,7 @@ export async function runDiscussion(
         index,
         participantNames,
         input.signal,
+        input.providerOverride,
       );
 
       transcript.push(turn);
@@ -506,6 +521,7 @@ export async function runDiscussion(
       topic,
       transcript,
       input.signal,
+      input.providerOverride,
     );
     summary = s;
     input.onProgress?.({ type: "summary_completed", summary: s, durationMs });

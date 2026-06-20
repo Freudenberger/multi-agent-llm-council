@@ -16,6 +16,7 @@ import {
 import { z } from "zod";
 import { auth } from "@/auth/config";
 import { userStorage } from "@/auth/userStorage";
+import { resolveProviderOverride } from "@/auth/providerOverride";
 
 const requestSchema = z.object({
   topic: z
@@ -138,6 +139,9 @@ export async function POST(request: NextRequest) {
   // Reuse the signed-in user's preferred models as the per-agent fallback list.
   const user = await userStorage.findById(session.user.id);
   const fallbackModels: string[] | undefined = user?.preferredModels;
+  // The user's own provider key (when saved) forces live LLMs, overriding
+  // LLM_PROVIDER=mock.
+  const providerOverride = resolveProviderOverride(user?.providerSettings);
 
   // Stream progress + the final result as NDJSON, one JSON object per line:
   //   { kind: "progress", event }  — live discussion events (turn-by-turn)
@@ -166,6 +170,7 @@ export async function POST(request: NextRequest) {
           rounds: validation.data.rounds,
           summarizerId: validation.data.summarizerId,
           fallbackModels,
+          providerOverride,
           signal: ac.signal,
           onProgress: (event) => send({ kind: "progress", event }),
         });
