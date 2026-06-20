@@ -8,6 +8,14 @@ A deliberation system where multiple AI agents collaborate to answer your questi
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-38B2AC?logo=tailwind-css&logoColor=white)
 ![Vitest](https://img.shields.io/badge/Vitest-6E9F18?logo=vitest&logoColor=white)
 
+## 🚀 Live Demo
+
+**Try it now → [multi-agent-llm-council.onrender.com](https://multi-agent-llm-council.onrender.com)**
+
+The demo runs on the deterministic mock provider, so you can explore the full council flow end-to-end without an API key.
+
+> ℹ️ Hosted on Render's free tier — the first request after a period of inactivity may take ~30–60s while the service wakes up.
+
 ## How It Works
 
 Every council mode runs the same engine. By default it's a **two-phase** flow. Optionally — via the **🔍 Run with Peer Review** button — it adds a middle peer-review/ranking phase, making it **three phases**. Peer review is a per-run analysis option, not a separate mode: it works with whichever mode you pick.

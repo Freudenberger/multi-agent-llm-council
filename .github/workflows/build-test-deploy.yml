@@ -1,0 +1,18 @@
+# One-click pipeline: run the full build/test/e2e gate, and only deploy to
+# Render if it passes. Manual trigger, matching the repo's other workflows.
+
+name: Build, Test and Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    uses: ./.github/workflows/build-test.yml
+
+  deploy:
+    needs: build-and-test
+    uses: ./.github/workflows/deploy.yml
+    secrets:
+      RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}

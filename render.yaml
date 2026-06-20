@@ -4,10 +4,23 @@ services:
     runtime: node
     buildCommand: npm install && npm run build
     startCommand: npm start
+    # Render polls this for zero-downtime deploys; it's the dependency-free
+    # liveness route (no DB / LLM / auth). See src/app/api/health/route.ts.
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      # Demo-safe default: the app deploys and runs end-to-end with no API key.
+      # Set OPENROUTER_API_KEY in the dashboard and flip this to `openrouter`.
       - key: LLM_PROVIDER
         value: mock
+      # Local JSON storage (ephemeral on Render). Switch to `supabase` + add
+      # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY for durable hosted storage.
+      - key: DB_PROVIDER
+        value: local
+      # NextAuth session secret — required at runtime. Render generates a
+      # strong random value once and keeps it stable across deploys.
+      - key: AUTH_SECRET
+        generateValue: true
       - key: OPENROUTER_API_KEY
         sync: false

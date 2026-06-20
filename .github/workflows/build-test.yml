@@ -10,6 +10,8 @@ on:
   # pull_request:
   #   branches: ["main"]
   workflow_dispatch:
+  # Allow other workflows (e.g. build-test-deploy) to run this as a gate.
+  workflow_call:
 
 # Cancel superseded runs on the same ref to save CI minutes.
 concurrency:

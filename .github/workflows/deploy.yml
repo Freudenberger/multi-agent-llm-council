@@ -1,0 +1,35 @@
+# Triggers a deploy of the Render Web Service defined in render.yaml.
+# The Render service is connected to this repo and builds from source
+# (npm install && npm run build → npm start); this workflow just kicks
+# off a new deploy via the Render API.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   RENDER_SERVICE_ID — the service's ID from its Render dashboard URL (srv-…)
+#   RENDER_API_KEY    — a Render API key (Account Settings → API Keys)
+#
+# Runs standalone (manual) or as a reusable step called by build-test-deploy.yml.
+
+name: Deploy
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      RENDER_SERVICE_ID:
+        required: true
+      RENDER_API_KEY:
+        required: true
+
+jobs:
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        uses: JorgeLNJunior/render-deploy@v1.4.6
+        with:
+          service_id: ${{ secrets.RENDER_SERVICE_ID }}
+          api_key: ${{ secrets.RENDER_API_KEY }}
+          # Block until Render reports the deploy live (or failed), so this
+          # job's status reflects the real outcome instead of just "triggered".
+          wait_deploy: true
