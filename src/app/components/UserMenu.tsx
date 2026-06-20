@@ -23,7 +23,12 @@ export function UserMenu() {
   }, [open]);
 
   const handleSignOut = useCallback(async () => {
-    await signOut({ callbackUrl: "/" });
+    // Don't let NextAuth compute the post-signout redirect: behind a reverse
+    // proxy (Render) the server resolves the relative callbackUrl against the
+    // internally-detected host (localhost:10000) and sends the browser there.
+    // Clear the session, then navigate to "/" relative to the real origin.
+    await signOut({ redirect: false });
+    window.location.href = "/";
   }, []);
 
   // Loading state

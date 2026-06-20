@@ -4,6 +4,15 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+const BASE_INPUT_CLASS =
+  "w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border rounded-lg text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:border-transparent";
+
+function fieldClass(errors?: string[]): string {
+  return errors
+    ? `${BASE_INPUT_CLASS} border-red-500 dark:border-red-500 focus:ring-red-500`
+    : `${BASE_INPUT_CLASS} border-zinc-300 dark:border-zinc-700 focus:ring-blue-500`;
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -11,15 +20,33 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setError(null);
+      setFieldErrors({});
 
+      // Client-side validation that mirrors the server schema, so the user
+      // gets immediate, specific feedback before a round-trip.
+      const clientErrors: Record<string, string[]> = {};
+      if (name.trim().length < 2) {
+        clientErrors.name = ["Name must be at least 2 characters"];
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        clientErrors.email = ["Invalid email address"];
+      }
+      if (password.length < 6) {
+        clientErrors.password = ["Password must be at least 6 characters"];
+      }
       if (password !== confirmPassword) {
-        setError("Passwords do not match");
+        clientErrors.confirmPassword = ["Passwords do not match"];
+      }
+      if (Object.keys(clientErrors).length > 0) {
+        setFieldErrors(clientErrors);
+        setError("Please fix the highlighted fields below.");
         return;
       }
 
@@ -35,7 +62,24 @@ export default function RegisterPage() {
         const data = await res.json();
 
         if (!res.ok) {
-          setError(data.error || "Registration failed");
+          // The API returns field-level messages in `details` for validation
+          // failures (e.g. { name: ["Name must be at least 2 characters"] }).
+          // Surface them so the user knows exactly what to fix.
+          if (data.details && typeof data.details === "object") {
+            setFieldErrors(data.details as Record<string, string[]>);
+            const messages = Object.values(
+              data.details as Record<string, string[]>,
+            )
+              .flat()
+              .filter(Boolean);
+            setError(
+              messages.length > 0
+                ? messages.join(" ")
+                : data.error || "Registration failed",
+            );
+          } else {
+            setError(data.error || "Registration failed");
+          }
           return;
         }
 
@@ -80,10 +124,18 @@ export default function RegisterPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              minLength={2}
               autoComplete="name"
               placeholder="Your name"
-              className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-invalid={fieldErrors.name ? true : undefined}
+              aria-describedby={fieldErrors.name ? "name-error" : undefined}
+              className={fieldClass(fieldErrors.name)}
             />
+            {fieldErrors.name && (
+              <p id="name-error" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                {fieldErrors.name.join(" ")}
+              </p>
+            )}
           </div>
 
           <div>
@@ -98,8 +150,15 @@ export default function RegisterPage() {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-invalid={fieldErrors.email ? true : undefined}
+              aria-describedby={fieldErrors.email ? "email-error" : undefined}
+              className={fieldClass(fieldErrors.email)}
             />
+            {fieldErrors.email && (
+              <p id="email-error" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                {fieldErrors.email.join(" ")}
+              </p>
+            )}
           </div>
 
           <div>
@@ -115,8 +174,15 @@ export default function RegisterPage() {
               minLength={6}
               autoComplete="new-password"
               placeholder="At least 6 characters"
-              className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-invalid={fieldErrors.password ? true : undefined}
+              aria-describedby={fieldErrors.password ? "password-error" : undefined}
+              className={fieldClass(fieldErrors.password)}
             />
+            {fieldErrors.password && (
+              <p id="password-error" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                {fieldErrors.password.join(" ")}
+              </p>
+            )}
           </div>
 
           <div>
@@ -132,8 +198,15 @@ export default function RegisterPage() {
               minLength={6}
               autoComplete="new-password"
               placeholder="Repeat your password"
-              className="w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-invalid={fieldErrors.confirmPassword ? true : undefined}
+              aria-describedby={fieldErrors.confirmPassword ? "confirmPassword-error" : undefined}
+              className={fieldClass(fieldErrors.confirmPassword)}
             />
+            {fieldErrors.confirmPassword && (
+              <p id="confirmPassword-error" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                {fieldErrors.confirmPassword.join(" ")}
+              </p>
+            )}
           </div>
 
           <button
