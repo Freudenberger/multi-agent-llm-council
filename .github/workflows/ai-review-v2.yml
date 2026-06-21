@@ -147,8 +147,8 @@ jobs:
             review.out
           if-no-files-found: ignore
 
-      - name: Gate (informational)
+      - name: Gate
         if: steps.review.outputs.verdict == 'fail'
         run: |
-          echo "::warning::AI reviewer v2 returned a FAIL verdict — see the PR comment / check run."
-          # Make this a hard gate by switching to: exit 1
+          echo "::error::AI reviewer v2 returned a FAIL verdict — see the PR comment / check run."
+          exit 1
