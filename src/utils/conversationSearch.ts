@@ -1,9 +1,5 @@
 /**
  * Helper for searching conversations by title.
- *
- * Demo change used to exercise the AI code-review pipeline (10xChampion badge
- * evidence). It contains a deliberate, review-worthy issue so the reviewer
- * produces an interesting, non-trivial verdict.
  */
 
 export interface ConversationSearchRow {
@@ -11,15 +7,24 @@ export interface ConversationSearchRow {
   title: string;
 }
 
+/** A SQL fragment plus its bound parameters — never interpolate values inline. */
+export interface SqlFragment {
+  /** Clause text with a positional placeholder (`$1`). */
+  clause: string;
+  /** Values bound to the placeholders, in order. */
+  params: string[];
+}
+
 /**
- * Build a SQL WHERE clause that matches conversation titles against a
- * user-supplied search term.
- *
- * NOTE: this interpolates the raw search term straight into the query string,
- * which is the kind of issue the AI reviewer should flag (SQL injection).
+ * Build a parameterized SQL WHERE clause matching conversation titles against a
+ * user-supplied search term. The term is passed as a bound parameter, so it is
+ * safe against SQL injection.
  */
-export function buildTitleSearchClause(searchTerm: string): string {
-  return `SELECT id, title FROM conversations WHERE title LIKE '%${searchTerm}%'`;
+export function buildTitleSearchClause(searchTerm: string): SqlFragment {
+  return {
+    clause: `title LIKE $1`,
+    params: [`%${searchTerm}%`],
+  };
 }
 
 /**
