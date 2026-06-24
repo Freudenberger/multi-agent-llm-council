@@ -95,11 +95,19 @@ export default function RegisterPage() {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex flex-col">
+      {/* Site header — lets the user get back to the main page */}
+      <header className="border-b border-zinc-200 dark:border-zinc-800 px-6 py-4">
+        <Link href="/" className="inline-flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <img src="/icon.png" alt="" className="w-12 h-12 rounded-md" />
+          <span className="text-xl font-bold tracking-tight">Multi-Agent LLM Council</span>
+        </Link>
+      </header>
+
+      <div className="flex-1 flex items-center justify-center px-4">
       <div className="w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center">
-          <span className="text-4xl">🏛️</span>
           <h1 className="text-2xl font-bold mt-3">Create an account</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
             Join the council and start analyzing with AI agents
@@ -225,6 +233,7 @@ export default function RegisterPage() {
             Sign in
           </Link>
         </p>
+      </div>
       </div>
     </div>
   );
