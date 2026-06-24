@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Markdown } from "../components/Markdown";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { UserMenu } from "../components/UserMenu";
+import { Footer } from "../components/Footer";
 import {
   getDiscussionPersonas,
   getSummarizerPersonas,
@@ -608,7 +609,7 @@ export default function DiscussPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
         <p className="mb-4 text-sm text-neutral-400">
           Pick a panel of agents and watch them debate your topic
           back-and-forth, live. The conversation runs for a fixed number of
@@ -921,6 +922,7 @@ export default function DiscussPage() {
         </section>
       )}
       </main>
+      <Footer />
     </>
   );
 }

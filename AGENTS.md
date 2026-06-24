@@ -6,6 +6,8 @@
 
 Tech stack: **Next.js 16 + React 19 + TypeScript + Tailwind CSS 4 + Vitest**
 
+The HTTP API is described in [openapi.json](openapi.json) (OpenAPI 3.1) at the repo root — keep it in sync when adding or changing an `src/app/api/**` route.
+
 ## Project Structure
 
 ```
@@ -16,7 +18,9 @@ src/
 │   │   ├── council/route.ts   # POST /api/council — main analysis endpoint
 │   │   ├── discuss/route.ts   # POST /api/discuss — live roundtable discussion (NDJSON)
 │   │   ├── discussions/       # GET/POST + [id] GET/DELETE — saved roundtable history
-│   │   └── models/route.ts    # GET /api/models — fetch free OpenRouter models
+│   │   ├── models/route.ts    # GET /api/models — fetch free OpenRouter models
+│   │   ├── openapi/route.ts   # GET /api/openapi — serve the OpenAPI 3.1 spec
+│   │   └── version/route.ts   # GET /api/version — app version for the footer
 │   ├── components/
 │   │   ├── AgentCustomizer.tsx # Agent customization UI
 │   │   └── Markdown.tsx        # Zero-dependency markdown renderer

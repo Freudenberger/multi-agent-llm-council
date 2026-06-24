@@ -15,6 +15,7 @@ import { AgentCustomizer } from "./components/AgentCustomizer";
 import { UserMenu } from "./components/UserMenu";
 import { HistorySidebar } from "./components/HistorySidebar";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { Footer } from "./components/Footer";
 import { getModeAgents, getAllAgentTemplates } from "./agentData";
 
 const MODES: {
@@ -539,10 +540,7 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-200 dark:border-zinc-800 px-6 py-4 text-center text-xs text-zinc-500 print:hidden">
-        Multi-Agent LLM Council - Supports analysis by showing multiple perspectives.
-        Does not guarantee correctness. Created by <a href="https://github.com/Freudenberger" className="text-blue-500 hover:underline">Freudenberger</a>.
-      </footer>
+      <Footer />
     </div>
   );
 }

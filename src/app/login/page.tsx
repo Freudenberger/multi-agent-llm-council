@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Footer } from "../components/Footer";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -119,6 +120,7 @@ export default function LoginPage() {
         </p>
       </div>
       </div>
+      <Footer />
     </div>
   );
 }

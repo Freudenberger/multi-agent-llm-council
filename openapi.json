@@ -1,0 +1,898 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Multi-Agent LLM Council API",
+    "version": "0.1.3",
+    "description": "HTTP API for the Multi-Agent LLM Council. Authentication is cookie-based (NextAuth session). `/api/council` and `/api/discuss` stream NDJSON (one JSON object per line) rather than returning a single body. The `version` here tracks package.json; the live value is served by GET /api/version."
+  },
+  "servers": [{ "url": "/", "description": "Same-origin (Next.js app)" }],
+  "tags": [
+    { "name": "Council", "description": "Multi-agent analysis" },
+    { "name": "Roundtable", "description": "Live agent discussions" },
+    { "name": "Conversations", "description": "Saved council runs" },
+    { "name": "Discussions", "description": "Saved roundtable discussions" },
+    { "name": "User", "description": "Auth and user settings" },
+    { "name": "Meta", "description": "Models, health, version" }
+  ],
+  "paths": {
+    "/api/council": {
+      "post": {
+        "tags": ["Council"],
+        "summary": "Run a council analysis (streaming NDJSON)",
+        "description": "Streams progress events and the final result as NDJSON. Anonymous callers get defaults; authenticated callers get their preferred models and provider override. The run is auto-saved for authenticated users before the result line.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CouncilRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "NDJSON stream. Each line is one of: {kind:'progress',event}, {kind:'result',result:RunCouncilResult}, {kind:'error',error}.",
+            "content": {
+              "application/x-ndjson": {
+                "schema": { "$ref": "#/components/schemas/CouncilStreamLine" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "503": { "$ref": "#/components/responses/Error" },
+          "504": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "get": {
+        "tags": ["Council"],
+        "summary": "Not allowed",
+        "responses": { "405": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/api/discuss": {
+      "post": {
+        "tags": ["Roundtable"],
+        "summary": "Run a live agent roundtable (streaming NDJSON)",
+        "description": "Authenticated only. Streams turn-by-turn progress and the final transcript as NDJSON. Cancellable via client disconnect.",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DiscussRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "NDJSON stream. Each line is one of: {kind:'progress',event}, {kind:'result',result:RunDiscussionResult}, {kind:'error',error}.",
+            "content": {
+              "application/x-ndjson": {
+                "schema": { "$ref": "#/components/schemas/DiscussStreamLine" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "503": { "$ref": "#/components/responses/Error" },
+          "504": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "get": {
+        "tags": ["Roundtable"],
+        "summary": "Not allowed",
+        "responses": { "405": { "$ref": "#/components/responses/Error" } }
+      }
+    },
+    "/api/conversations": {
+      "get": {
+        "tags": ["Conversations"],
+        "summary": "List the signed-in user's saved council runs",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Conversation summaries, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ConversationSummary" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "post": {
+        "tags": ["Conversations"],
+        "summary": "Save (upsert) a council run",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SaveConversationRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Ok" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/conversations/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "get": {
+        "tags": ["Conversations"],
+        "summary": "Get a single council run (owner only)",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Full stored conversation.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StoredConversation" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "delete": {
+        "tags": ["Conversations"],
+        "summary": "Delete a council run (owner only)",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/Ok" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/discussions": {
+      "get": {
+        "tags": ["Discussions"],
+        "summary": "List the signed-in user's saved discussions",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Discussion list items, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/DiscussionListItem" }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "post": {
+        "tags": ["Discussions"],
+        "summary": "Save (upsert) a discussion",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SaveDiscussionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Ok" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/discussions/{id}": {
+      "parameters": [{ "$ref": "#/components/parameters/Id" }],
+      "get": {
+        "tags": ["Discussions"],
+        "summary": "Get a single discussion (owner only)",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Full stored discussion.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StoredDiscussion" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "delete": {
+        "tags": ["Discussions"],
+        "summary": "Delete a discussion (owner only)",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/Ok" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "403": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/models": {
+      "get": {
+        "tags": ["Meta"],
+        "summary": "List free OpenRouter models",
+        "description": "Cached ~5 minutes. Returns an empty list when OPENROUTER_API_KEY is unset.",
+        "responses": {
+          "200": {
+            "description": "Available free models.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "models": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Model" }
+                    },
+                    "cached": { "type": "boolean" }
+                  },
+                  "required": ["models"]
+                }
+              }
+            }
+          },
+          "502": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": ["Meta"],
+        "summary": "Liveness/readiness probe",
+        "description": "Auth- and dependency-free. Never cached.",
+        "responses": {
+          "200": {
+            "description": "Server is up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "const": "ok" },
+                    "version": { "type": "string" },
+                    "sha": { "type": "string" },
+                    "uptimeSeconds": { "type": "number" }
+                  },
+                  "required": ["status", "version", "sha", "uptimeSeconds"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openapi": {
+      "get": {
+        "tags": ["Meta"],
+        "summary": "This OpenAPI 3.1 spec",
+        "description": "Returns the API spec as JSON. info.version reflects the live package version.",
+        "responses": {
+          "200": {
+            "description": "OpenAPI document.",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      }
+    },
+    "/api/version": {
+      "get": {
+        "tags": ["Meta"],
+        "summary": "App version (used by the footer)",
+        "description": "Returns APP_VERSION when set, otherwise the package.json version.",
+        "responses": {
+          "200": {
+            "description": "Version string.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "version": { "type": "string" } },
+                  "required": ["version"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": ["User"],
+        "summary": "Register a new account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "message": { "type": "string" } }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/Error" },
+          "409": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/auth/{nextauth}": {
+      "parameters": [
+        {
+          "name": "nextauth",
+          "in": "path",
+          "required": true,
+          "description": "NextAuth catch-all segment (signin, signout, session, callback, csrf, providers).",
+          "schema": { "type": "string" }
+        }
+      ],
+      "get": {
+        "tags": ["User"],
+        "summary": "NextAuth handler (GET)",
+        "description": "Delegated to NextAuth (session, csrf, providers, callbacks). Request/response shapes are NextAuth-defined.",
+        "responses": { "200": { "description": "NextAuth-defined response." } }
+      },
+      "post": {
+        "tags": ["User"],
+        "summary": "NextAuth handler (POST)",
+        "description": "Delegated to NextAuth (signin, signout, callbacks).",
+        "responses": { "200": { "description": "NextAuth-defined response." } }
+      }
+    },
+    "/api/user/settings": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Get provider settings and preferred models",
+        "description": "API keys are returned masked.",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "User settings.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserSettings" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "put": {
+        "tags": ["User"],
+        "summary": "Update provider settings and/or preferred models",
+        "description": "At least one of providerSettings or preferredModels must be supplied.",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateSettingsRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Message" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "post": {
+        "tags": ["User"],
+        "summary": "Test a provider API key",
+        "description": "Validates the supplied key (or the saved key when omitted) against the provider.",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProviderQuery" }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TestKeyRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Message" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "502": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      },
+      "delete": {
+        "tags": ["User"],
+        "summary": "Remove a provider's API key",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProviderQuery" }],
+        "responses": {
+          "200": { "$ref": "#/components/responses/Message" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/user/settings/test": {
+      "post": {
+        "tags": ["User"],
+        "summary": "Test a provider API key (provider in query)",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProviderQuery" }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TestKeyRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Message" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "502": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/user/settings/{providerId}/test": {
+      "parameters": [
+        {
+          "name": "providerId",
+          "in": "path",
+          "required": true,
+          "schema": { "type": "string" }
+        }
+      ],
+      "post": {
+        "tags": ["User"],
+        "summary": "Test a provider API key (provider in path)",
+        "security": [{ "sessionCookie": [] }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TestKeyRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "$ref": "#/components/responses/Message" },
+          "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "404": { "$ref": "#/components/responses/Error" },
+          "502": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "authjs.session-token",
+        "description": "NextAuth session cookie, set by the auth flow. Name may be prefixed (`__Secure-`) over HTTPS."
+      }
+    },
+    "parameters": {
+      "Id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string" }
+      },
+      "ProviderQuery": {
+        "name": "provider",
+        "in": "query",
+        "required": true,
+        "description": "Provider id, e.g. \"openrouter\".",
+        "schema": { "type": "string" }
+      }
+    },
+    "responses": {
+      "Ok": {
+        "description": "Success.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": { "ok": { "type": "boolean", "const": true } }
+            }
+          }
+        }
+      },
+      "Message": {
+        "description": "Success with a message.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": { "message": { "type": "string" } }
+            }
+          }
+        }
+      },
+      "Error": {
+        "description": "Error response.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "CouncilModeId": {
+        "type": "string",
+        "enum": ["decision", "idea", "criticalReview", "learning", "technical", "answer", "swot"]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "description": "User-friendly headline." },
+          "message": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["validation", "unauthorized", "not_found", "timeout", "provider_unavailable", "server_error"]
+          },
+          "retryable": { "type": "boolean" },
+          "details": {
+            "type": "object",
+            "description": "Per-field validation errors (validation type only).",
+            "additionalProperties": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "required": ["error"]
+      },
+      "CustomAgent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "role": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "systemPrompt": { "type": "string", "minLength": 1, "maxLength": 20000 },
+          "isFinalJudge": { "type": "boolean" },
+          "disabled": { "type": "boolean" },
+          "model": { "type": "string", "maxLength": 200 }
+        },
+        "required": ["id", "name", "role", "systemPrompt"]
+      },
+      "CouncilRequest": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string", "minLength": 1, "maxLength": 10000 },
+          "mode": { "$ref": "#/components/schemas/CouncilModeId" },
+          "customAgents": {
+            "type": "object",
+            "description": "Keyed by agent id; overrides only the supplied fields.",
+            "additionalProperties": { "$ref": "#/components/schemas/CustomAgent" }
+          },
+          "peerReview": {
+            "type": "boolean",
+            "description": "Insert an anonymized peer-review/ranking phase before the judge."
+          }
+        },
+        "required": ["input", "mode"]
+      },
+      "DiscussRequest": {
+        "type": "object",
+        "properties": {
+          "topic": { "type": "string", "minLength": 1, "maxLength": 10000 },
+          "agentIds": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 2,
+            "maxItems": 4
+          },
+          "rounds": { "type": "integer", "minimum": 1, "maximum": 6 },
+          "summarizerId": { "type": "string", "minLength": 1 }
+        },
+        "required": ["topic", "agentIds", "rounds"]
+      },
+      "AgentResponse": {
+        "type": "object",
+        "properties": {
+          "agentId": { "type": "string" },
+          "agentName": { "type": "string" },
+          "content": { "type": "string" },
+          "confidence": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "model": { "type": "string", "description": "Resolved model that produced the response." }
+        },
+        "required": ["agentId", "agentName", "content", "confidence"]
+      },
+      "FinalReport": {
+        "type": "object",
+        "properties": {
+          "summary": { "type": "string" },
+          "keyConclusions": { "type": "array", "items": { "type": "string" } },
+          "agreements": { "type": "array", "items": { "type": "string" } },
+          "disagreements": { "type": "array", "items": { "type": "string" } },
+          "risks": { "type": "array", "items": { "type": "string" } },
+          "recommendations": { "type": "array", "items": { "type": "string" } },
+          "confidence": { "type": "integer", "minimum": 1, "maximum": 5 }
+        },
+        "required": ["summary", "keyConclusions", "agreements", "disagreements", "risks", "recommendations", "confidence"]
+      },
+      "RunCouncilResult": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "modeId": { "$ref": "#/components/schemas/CouncilModeId" },
+          "userInput": { "type": "string" },
+          "agentResponses": { "type": "array", "items": { "$ref": "#/components/schemas/AgentResponse" } },
+          "peerReviews": { "type": "array", "items": { "$ref": "#/components/schemas/AgentResponse" } },
+          "judgeResponse": {
+            "oneOf": [{ "$ref": "#/components/schemas/AgentResponse" }, { "type": "null" }]
+          },
+          "finalReport": { "$ref": "#/components/schemas/FinalReport" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "modeId", "userInput", "agentResponses", "finalReport", "createdAt"]
+      },
+      "StoredConversation": {
+        "allOf": [
+          { "$ref": "#/components/schemas/RunCouncilResult" },
+          {
+            "type": "object",
+            "properties": {
+              "userId": { "type": "string" },
+              "title": { "type": "string" }
+            },
+            "required": ["userId", "title"]
+          }
+        ]
+      },
+      "ConversationSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "modeId": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "messageCount": { "type": "integer" }
+        },
+        "required": ["id", "title", "modeId", "createdAt", "messageCount"]
+      },
+      "SaveConversationRequest": {
+        "allOf": [
+          { "$ref": "#/components/schemas/RunCouncilResult" },
+          {
+            "type": "object",
+            "properties": { "title": { "type": "string", "description": "Optional; defaults to the first 60 chars of input." } }
+          }
+        ]
+      },
+      "CouncilAgentMeta": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "isFinalJudge": { "type": "boolean" }
+        },
+        "required": ["id", "name", "role", "isFinalJudge"]
+      },
+      "DiscussionTurn": {
+        "type": "object",
+        "properties": {
+          "round": { "type": "integer", "description": "1-based round number." },
+          "index": { "type": "integer", "description": "0-based position across the discussion." },
+          "agentId": { "type": "string" },
+          "agentName": { "type": "string" },
+          "content": { "type": "string" },
+          "model": { "type": "string" },
+          "ok": { "type": "boolean", "description": "False when the turn failed and content is a placeholder." }
+        },
+        "required": ["round", "index", "agentId", "agentName", "content", "model", "ok"]
+      },
+      "DiscussionSummary": {
+        "type": "object",
+        "properties": {
+          "agentId": { "type": "string" },
+          "agentName": { "type": "string" },
+          "content": { "type": "string" },
+          "model": { "type": "string" },
+          "ok": { "type": "boolean" }
+        },
+        "required": ["agentId", "agentName", "content", "model", "ok"]
+      },
+      "DiscussionPhase": {
+        "type": "string",
+        "enum": ["idle", "running", "done", "cancelled", "error", "interrupted"]
+      },
+      "RunDiscussionResult": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "topic": { "type": "string" },
+          "participants": { "type": "array", "items": { "$ref": "#/components/schemas/CouncilAgentMeta" } },
+          "rounds": { "type": "integer" },
+          "turns": { "type": "array", "items": { "$ref": "#/components/schemas/DiscussionTurn" } },
+          "summary": { "$ref": "#/components/schemas/DiscussionSummary" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "topic", "participants", "rounds", "turns", "createdAt"]
+      },
+      "StoredDiscussion": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "userId": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "topic": { "type": "string" },
+          "participants": { "type": "array", "items": { "$ref": "#/components/schemas/CouncilAgentMeta" } },
+          "rounds": { "type": "integer" },
+          "turns": { "type": "array", "items": { "$ref": "#/components/schemas/DiscussionTurn" } },
+          "summary": { "oneOf": [{ "$ref": "#/components/schemas/DiscussionSummary" }, { "type": "null" }] },
+          "phase": { "$ref": "#/components/schemas/DiscussionPhase" }
+        },
+        "required": ["id", "userId", "createdAt", "topic", "participants", "rounds", "turns", "phase"]
+      },
+      "DiscussionListItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "topic": { "type": "string" },
+          "phase": { "$ref": "#/components/schemas/DiscussionPhase" },
+          "turnCount": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "topic", "phase", "turnCount", "createdAt"]
+      },
+      "SaveDiscussionRequest": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "topic": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "participants": { "type": "array", "items": { "$ref": "#/components/schemas/CouncilAgentMeta" } },
+          "rounds": { "type": "integer" },
+          "turns": { "type": "array", "items": { "$ref": "#/components/schemas/DiscussionTurn" } },
+          "summary": { "oneOf": [{ "$ref": "#/components/schemas/DiscussionSummary" }, { "type": "null" }] },
+          "phase": { "$ref": "#/components/schemas/DiscussionPhase" }
+        },
+        "required": ["id", "topic"]
+      },
+      "Model": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" }
+        },
+        "required": ["id", "name"],
+        "additionalProperties": true
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 2, "maxLength": 100 },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "minLength": 6, "maxLength": 100 }
+        },
+        "required": ["name", "email", "password"]
+      },
+      "UserSettings": {
+        "type": "object",
+        "properties": {
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "description": { "type": "string" },
+                "docsUrl": { "type": "string" }
+              }
+            }
+          },
+          "settings": {
+            "type": "object",
+            "description": "Keyed by provider id; apiKey is masked.",
+            "additionalProperties": {
+              "type": "object",
+              "properties": { "apiKey": { "type": "string" } }
+            }
+          },
+          "preferredModels": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "UpdateSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "providerSettings": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": { "apiKey": { "type": "string", "minLength": 1, "maxLength": 500 } },
+              "required": ["apiKey"]
+            }
+          },
+          "preferredModels": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 200 },
+            "maxItems": 50
+          }
+        }
+      },
+      "TestKeyRequest": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "If omitted, the saved key for the provider is tested."
+          }
+        }
+      },
+      "CouncilStreamLine": {
+        "type": "object",
+        "description": "One NDJSON line from /api/council.",
+        "properties": {
+          "kind": { "type": "string", "enum": ["progress", "result", "error"] },
+          "event": { "type": "object", "description": "Progress event (run_started, phase_started, agent_started, agent_completed)." },
+          "result": { "$ref": "#/components/schemas/RunCouncilResult" },
+          "error": { "$ref": "#/components/schemas/Error" }
+        },
+        "required": ["kind"]
+      },
+      "DiscussStreamLine": {
+        "type": "object",
+        "description": "One NDJSON line from /api/discuss.",
+        "properties": {
+          "kind": { "type": "string", "enum": ["progress", "result", "error"] },
+          "event": { "type": "object", "description": "Progress event (discussion_started, round_started, turn_started, turn_completed, summary_started, summary_completed)." },
+          "result": { "$ref": "#/components/schemas/RunDiscussionResult" },
+          "error": { "$ref": "#/components/schemas/Error" }
+        },
+        "required": ["kind"]
+      }
+    }
+  }
+}

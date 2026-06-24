@@ -20,7 +20,7 @@ The plan is derived from the following artefacts (each is a load-bearing input):
 
 - Council orchestration ([src/core/runCouncil.ts](../src/core/runCouncil.ts)) — Phase 1 (parallel specialists), Phase 2 (anonymized peer ranking), Phase 3 (judge synthesis with retry).
 - Provider layer ([src/providers/](../src/providers/)) — retry, timeout, error normalization.
-- Public HTTP surface — `/api/council`, `/api/conversations`, `/api/conversations/:id`, `/api/discuss`, `/api/discussions`, `/api/discussions/:id`, `/api/auth/*`, `/api/user/settings/*`, `/api/models`.
+- Public HTTP surface — `/api/council`, `/api/conversations`, `/api/conversations/:id`, `/api/discuss`, `/api/discussions`, `/api/discussions/:id`, `/api/auth/*`, `/api/user/settings/*`, `/api/models`, `/api/health`, `/api/version`, `/api/openapi`.
 - Auth — credentials login, registration, session protection.
 - Storage layer — local JSON + Supabase implementations for both conversations and roundtable discussions (each pair must behave identically).
 - Critical user flow — sign in → enter question → pick mode → run council → see report → save → export.

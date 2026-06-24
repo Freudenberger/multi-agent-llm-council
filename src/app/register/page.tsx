@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Footer } from "../components/Footer";
 
 const BASE_INPUT_CLASS =
   "w-full px-4 py-2.5 bg-white dark:bg-zinc-900 border rounded-lg text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:border-transparent";
@@ -235,6 +236,7 @@ export default function RegisterPage() {
         </p>
       </div>
       </div>
+      <Footer />
     </div>
   );
 }

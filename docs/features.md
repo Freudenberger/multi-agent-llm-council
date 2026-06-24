@@ -191,3 +191,10 @@ A hidden, unlinked page at `/discuss` where a small panel of agents debate a top
 - **Prompts:** `buildDiscussionSystemPrompt` / `buildDiscussionUserMessage` wrap each persona with conversational rules and feed it the running transcript.
 - **Personas:** `getDiscussionPersonas()` in `src/agents/defaultAgents.ts` lists the selectable (non-judge) agents; `resolveAgent(id)` turns a template id into a runnable agent.
 - A failed turn records a short placeholder (`ok: false`) and the discussion continues with the remaining agents rather than aborting the whole run.
+
+### 12. Site Footer with App Version
+
+Every page (main, `/discuss`, `/login`, `/register`) shows a shared footer with the project disclaimer and the running app version.
+
+- **Shared component:** `src/app/components/Footer.tsx` — renders `Multi-Agent LLM Council · v<version> — …`; replaces the previously inline footer on the main page so all four pages match.
+- **Version from the backend:** the footer fetches `GET /api/version`, which returns `{ version }` — `APP_VERSION` when a build stamps it, otherwise the `package.json` version (so local/dev shows a real number rather than the `"unknown"` that `/api/health` reports). The version is never hard-coded in the client.
