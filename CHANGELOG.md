@@ -2,6 +2,16 @@
 
 All notable changes are generated from Conventional Commits by `npm run release`.
 
+## [0.1.3](https://github.com/Freudenberger/multi-agent-llm-council/compare/v0.1.2...v0.1.3) (2026-06-24)
+
+
+### Features
+
+* **api:** add discussions endpoint for saved history ([1526bf9](https://github.com/Freudenberger/multi-agent-llm-council/commit/1526bf90a9eb5926f84e541f7379eebb93d58dd0))
+* **docs:** add AI review run screen images ([c36ab73](https://github.com/Freudenberger/multi-agent-llm-council/commit/c36ab731e566a7ff3fd708a8f1ef83a9f23cb073))
+* **docs:** add new screen images for documentation ([1983de4](https://github.com/Freudenberger/multi-agent-llm-council/commit/1983de41b15219849113cb2316bb68730b16a2da))
+* **ui:** add header to login and registration pages ([a386216](https://github.com/Freudenberger/multi-agent-llm-council/commit/a386216e34c7e743166218b8d5e5834dd21fb490))
+
 ## [0.1.2](https://github.com/Freudenberger/multi-agent-llm-council/compare/v0.1.1...v0.1.2) (2026-06-20)
 
 
