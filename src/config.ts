@@ -11,3 +11,8 @@
  * Default is 5 to match the existing behaviour.
  */
 export const MAX_CONVERSATIONS_PER_USER = 5;
+
+/**
+ * Maximum number of stored Agent Roundtable discussions per user.
+ */
+export const MAX_DISCUSSIONS_PER_USER = 5;

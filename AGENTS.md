@@ -15,6 +15,7 @@ src/
 │   ├── api/
 │   │   ├── council/route.ts   # POST /api/council — main analysis endpoint
 │   │   ├── discuss/route.ts   # POST /api/discuss — live roundtable discussion (NDJSON)
+│   │   ├── discussions/       # GET/POST + [id] GET/DELETE — saved roundtable history
 │   │   └── models/route.ts    # GET /api/models — fetch free OpenRouter models
 │   ├── components/
 │   │   ├── AgentCustomizer.tsx # Agent customization UI

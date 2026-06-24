@@ -11,6 +11,17 @@ import {
   getDiscussionPersonas,
   getSummarizerPersonas,
 } from "@/agents/defaultAgents";
+import { MAX_DISCUSSIONS_PER_USER } from "@/config";
+import {
+  loadCurrent,
+  saveCurrent,
+  listDiscussions,
+  getDiscussion,
+  saveDiscussion,
+  deleteDiscussion,
+  type DiscussionListItem,
+  type SavedSession,
+} from "./sessionStore";
 import {
   DISCUSSION_MIN_AGENTS,
   DISCUSSION_MAX_AGENTS,
@@ -31,7 +42,7 @@ const ACCENTS = [
   "border-amber-500/60 bg-amber-500/10 text-amber-300",
 ];
 
-type Phase = "idle" | "running" | "done" | "cancelled" | "error";
+type Phase = "idle" | "running" | "done" | "cancelled" | "error" | "interrupted";
 
 type UiError = { title: string; message: string };
 
@@ -98,6 +109,7 @@ function slugify(text: string): string {
   );
 }
 
+
 export default function DiscussPage() {
   const { status } = useSession();
   const router = useRouter();
@@ -136,8 +148,117 @@ export default function DiscussPage() {
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
   const [summaryCollapsed, setSummaryCollapsed] = useState(false);
 
+  // DB-backed history list + identity of the session currently on screen.
+  const [history, setHistory] = useState<DiscussionListItem[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [session, setSession] = useState<{ id: string; createdAt: string } | null>(null);
+  // Ids already written to the DB, so a re-render of a finished run doesn't re-POST.
+  const persistedRef = useRef<string | null>(null);
+
   const abortRef = useRef<AbortController | null>(null);
   const running = phase === "running";
+
+  // Load the DB-backed history list on mount (and let the dropdown refresh it).
+  const refreshHistory = useCallback(() => {
+    listDiscussions().then(setHistory);
+  }, []);
+  useEffect(() => {
+    refreshHistory();
+  }, [refreshHistory]);
+
+  // Restore the last *live* transcript from localStorage. A run still "running"
+  // when the page closed can't reconnect to the (now-dead) server stream, so it
+  // surfaces as "interrupted".
+  useEffect(() => {
+    // localStorage is only available client-side; reading it during render
+    // would cause an SSR/client hydration mismatch, so restore in an effect.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const cur = loadCurrent();
+    if (cur) {
+      setTopic(cur.topic);
+      setParticipants(cur.participants);
+      setRunRounds(cur.rounds);
+      setTurns(cur.turns);
+      setSummary(cur.summary);
+      setPhase(cur.phase === "running" ? "interrupted" : cur.phase);
+      setSession({ id: cur.id, createdAt: cur.createdAt });
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  // Persist the live transcript to localStorage on every change; when a run
+  // reaches a terminal state, save it once to the DB-backed history.
+  useEffect(() => {
+    if (!session) return;
+    if (turns.length === 0 && phase !== "running") return;
+    const snap: SavedSession = {
+      id: session.id,
+      createdAt: session.createdAt,
+      topic: topic.trim(),
+      participants,
+      rounds: runRounds,
+      turns,
+      summary,
+      phase,
+    };
+    saveCurrent(snap);
+    const terminal =
+      phase === "done" || phase === "cancelled" || phase === "error" || phase === "interrupted";
+    if (terminal && persistedRef.current !== session.id) {
+      persistedRef.current = session.id;
+      saveDiscussion(snap).then(refreshHistory);
+    }
+  }, [session, topic, participants, runRounds, turns, summary, phase, refreshHistory]);
+
+  const loadSaved = useCallback(
+    async (id: string) => {
+      if (running) return;
+      const s = await getDiscussion(id);
+      if (!s) return;
+      persistedRef.current = s.id; // already in the DB — don't re-save on render
+      setTopic(s.topic);
+      setParticipants(s.participants);
+      setRunRounds(s.rounds);
+      setTurns(s.turns);
+      setSummary(s.summary);
+      setSpeakingId(null);
+      setSummarizing(false);
+      setError(null);
+      setInputError(null);
+      setCollapsed(new Set());
+      setSummaryCollapsed(false);
+      setPhase(s.phase === "running" ? "interrupted" : s.phase);
+      setSession({ id: s.id, createdAt: s.createdAt });
+      setHistoryOpen(false);
+    },
+    [running],
+  );
+
+  const deleteSaved = useCallback((id: string) => {
+    deleteDiscussion(id).then(() =>
+      setHistory((prev) => prev.filter((s) => s.id !== id)),
+    );
+  }, []);
+
+  const newDiscussion = useCallback(() => {
+    if (running) return;
+    saveCurrent(null);
+    persistedRef.current = null;
+    setSession(null);
+    setTopic("");
+    setParticipants([]);
+    setRunRounds(0);
+    setTurns([]);
+    setSummary(null);
+    setSpeakingId(null);
+    setSummarizing(false);
+    setError(null);
+    setInputError(null);
+    setCollapsed(new Set());
+    setSummaryCollapsed(false);
+    setPhase("idle");
+    setHistoryOpen(false);
+  }, [running]);
 
   // Map agent id → accent index (its position in the panel) for coloring.
   const accentFor = useCallback(
@@ -220,6 +341,7 @@ export default function DiscussPage() {
     setSummarizing(false);
     setCollapsed(new Set());
     setSummaryCollapsed(false);
+    setSession({ id: `rt-${Date.now()}`, createdAt: new Date().toISOString() });
     setPhase("running");
 
     const controller = new AbortController();
@@ -388,6 +510,91 @@ export default function DiscussPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={newDiscussion}
+              disabled={running}
+              className="px-3 py-2 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+              title="Start a fresh discussion"
+            >
+              + New
+            </button>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !historyOpen;
+                  if (next) refreshHistory();
+                  setHistoryOpen(next);
+                }}
+                className="px-3 py-2 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                title="Saved discussions"
+              >
+                History
+                {history.length > 0 && (
+                  <span className="ml-1.5 text-xs bg-zinc-300 dark:bg-zinc-700 px-1.5 py-0.5 rounded-full">
+                    {history.length}
+                  </span>
+                )}
+              </button>
+              {historyOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">Saved discussions</h3>
+                    <span className="text-xs text-zinc-500">Max {MAX_DISCUSSIONS_PER_USER}</span>
+                  </div>
+                  {history.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-sm text-zinc-500">
+                      No saved discussions yet.
+                    </p>
+                  ) : (
+                    <ul className="max-h-[60vh] overflow-y-auto divide-y divide-zinc-200 dark:divide-zinc-800">
+                      {history.map((s) => (
+                        <li
+                          key={s.id}
+                          className="group flex items-start gap-2 px-4 py-3 hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => loadSaved(s.id)}
+                            disabled={running}
+                            className="min-w-0 flex-1 text-left disabled:opacity-50"
+                          >
+                            <p className="text-sm font-medium truncate">
+                              {s.topic || "(untitled)"}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-zinc-500">
+                              <span>{s.turnCount} turns</span>
+                              {s.phase === "interrupted" && (
+                                <span className="text-amber-500">interrupted</span>
+                              )}
+                              <span>
+                                {new Date(s.createdAt).toLocaleDateString(undefined, {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteSaved(s.id)}
+                            className="shrink-0 opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-red-500 transition"
+                            title="Delete"
+                          >
+                            ✕
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
             <Link
               href="/"
               className="px-3 py-2 text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
@@ -540,11 +747,13 @@ export default function DiscussPage() {
             <span>
               {phase === "cancelled"
                 ? "Stopped"
-                : phase === "done"
-                  ? "Discussion complete"
-                  : summarizing
-                    ? "Summarizing the discussion…"
-                    : `Round ${displayRound} of ${runRounds}`}
+                : phase === "interrupted"
+                  ? "Interrupted"
+                  : phase === "done"
+                    ? "Discussion complete"
+                    : summarizing
+                      ? "Summarizing the discussion…"
+                      : `Round ${displayRound} of ${runRounds}`}
             </span>
             <span>
               {completedTurns} / {expectedTurns} turns
@@ -570,6 +779,17 @@ export default function DiscussPage() {
         <div className="mt-4 rounded-md border border-red-800 bg-red-950/40 p-3 text-sm">
           <p className="font-medium text-red-300">{error.title}</p>
           <p className="text-red-200/80">{error.message}</p>
+        </div>
+      )}
+
+      {phase === "interrupted" && (
+        <div className="mt-4 rounded-md border border-amber-700 bg-amber-950/40 p-3 text-sm">
+          <p className="font-medium text-amber-300">Discussion interrupted</p>
+          <p className="text-amber-200/80">
+            This run was cut off when you left the page. The live discussion
+            can&apos;t be resumed, but the transcript below is preserved. Start a
+            new discussion to continue.
+          </p>
         </div>
       )}
 

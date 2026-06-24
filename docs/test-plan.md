@@ -20,9 +20,9 @@ The plan is derived from the following artefacts (each is a load-bearing input):
 
 - Council orchestration ([src/core/runCouncil.ts](../src/core/runCouncil.ts)) — Phase 1 (parallel specialists), Phase 2 (anonymized peer ranking), Phase 3 (judge synthesis with retry).
 - Provider layer ([src/providers/](../src/providers/)) — retry, timeout, error normalization.
-- Public HTTP surface — `/api/council`, `/api/conversations`, `/api/conversations/:id`, `/api/auth/*`, `/api/user/settings/*`, `/api/models`.
+- Public HTTP surface — `/api/council`, `/api/conversations`, `/api/conversations/:id`, `/api/discuss`, `/api/discussions`, `/api/discussions/:id`, `/api/auth/*`, `/api/user/settings/*`, `/api/models`.
 - Auth — credentials login, registration, session protection.
-- Storage layer — local JSON + Supabase implementations (must behave identically).
+- Storage layer — local JSON + Supabase implementations for both conversations and roundtable discussions (each pair must behave identically).
 - Critical user flow — sign in → enter question → pick mode → run council → see report → save → export.
 
 ### 2.2 Out of Scope (by intent)
@@ -79,7 +79,7 @@ Risks are described as **user-facing failure scenarios**, not as "file X has no 
 
 | # | Class                | Scenario                                                                                       | Impact | Likelihood | Priority |
 | - | -------------------- | ---------------------------------------------------------------------------------------------- | :----: | :--------: | :------: |
-| 1 | **IDOR / Authz**     | User A reads / deletes user B's conversation via `GET/DELETE /api/conversations/:id`            | High   | Med        | **P0**   |
+| 1 | **IDOR / Authz**     | User A reads / deletes user B's conversation or discussion via `GET/DELETE /api/conversations/:id` or `/api/discussions/:id` | High   | Med        | **P0**   |
 | 2 | **Untrusted input**  | Malicious system prompt injection via `customAgents.systemPrompt`                              | Med    | Med        | **P1**   |
 | 3 | **Abuse / cost**     | Unauthenticated caller hits `/api/council` in a loop, draining OpenRouter budget                | High   | High       | **P0**   |
 | 4 | **Secrets in logs**  | API key leaks into structured logs (e.g. via error message echoing a header)                   | High   | Low        | **P1**   |
@@ -90,7 +90,7 @@ Risks are described as **user-facing failure scenarios**, not as "file X has no 
 
 Code anchors:
 
-- IDOR is **already guarded** in [src/app/api/conversations/[id]/route.ts:30-32, 60-63](../src/app/api/conversations/[id]/route.ts#L30) — a test must lock the guard in place.
+- IDOR is **already guarded** in [src/app/api/conversations/[id]/route.ts:30-32, 60-63](../src/app/api/conversations/[id]/route.ts#L30) and the mirrored [src/app/api/discussions/[id]/route.ts](../src/app/api/discussions/[id]/route.ts) (owner check on GET + DELETE) — a test must lock both guards in place.
 - Abuse risk has **no rate limit yet** — see roadmap M1.
 - `OPENROUTER_API_KEY` is not echoed in errors today; a test prevents future regressions.
 

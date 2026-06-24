@@ -46,3 +46,26 @@ create index if not exists idx_conversations_user_id
   on public.conversations (user_id, created_at desc);
 
 alter table public.conversations enable row level security;
+
+-- ---------------------------------------------------------------------------
+-- discussions (Agent Roundtable)
+-- ---------------------------------------------------------------------------
+-- Mirrors the client-side SavedSession (src/app/discuss/sessionStore.ts) so the
+-- roundtable transcript can move from localStorage to the DB. Currently
+-- persisted client-side; this table is the migration target.
+create table if not exists public.discussions (
+  id            text         primary key,
+  user_id       text         not null,
+  topic         text         not null,
+  participants  jsonb        not null default '[]'::jsonb,
+  rounds        integer      not null default 0,
+  turns         jsonb        not null default '[]'::jsonb,
+  summary       jsonb,
+  phase         text         not null default 'done',
+  created_at    timestamptz  not null default now()
+);
+
+create index if not exists idx_discussions_user_id
+  on public.discussions (user_id, created_at desc);
+
+alter table public.discussions enable row level security;
