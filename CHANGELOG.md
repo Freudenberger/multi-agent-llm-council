@@ -2,6 +2,13 @@
 
 All notable changes are generated from Conventional Commits by `npm run release`.
 
+## [0.1.4](https://github.com/Freudenberger/multi-agent-llm-council/compare/v0.1.3...v0.1.4) (2026-06-24)
+
+
+### Features
+
+* **api:** add health and version endpoints to API ([d4e3a55](https://github.com/Freudenberger/multi-agent-llm-council/commit/d4e3a5545c6228125712adb4432aa2dfa612630e))
+
 ## [0.1.3](https://github.com/Freudenberger/multi-agent-llm-council/compare/v0.1.2...v0.1.3) (2026-06-24)
 
 
