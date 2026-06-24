@@ -27,27 +27,39 @@ Instead, the application will include:
 
 ## 3. High-Level Architecture
 
-```text
-Web UI
-  ↓
-Internal API Route
-  ↓
-Council Core
-  ↓
-LLM Provider
-```
+Both clients converge on the same Council Core, which talks only to the provider interface. The web path adds a thin API route; the CLI calls the core directly.
 
-The CLI will use the same Council Core directly:
-
-```text
-CLI
-  ↓
-Council Core
-  ↓
-LLM Provider
+```mermaid
+flowchart LR
+    WEB["Web UI"] --> API["Internal API route<br/>thin: validate → call → return"]
+    CLI["CLI"] --> CORE
+    API --> CORE["Council Core"]
+    CORE --> PROV["LLM Provider interface"]
+    PROV --> LLM[("Model / Mock")]
 ```
 
 This approach ensures that the business logic is implemented only once and reused by both the web application and the command-line interface.
+
+A council request streams progress and the final result back as NDJSON (one tagged JSON object per line), so the UI can show live per-agent status:
+
+```mermaid
+sequenceDiagram
+    participant U as Browser
+    participant API as POST /api/council
+    participant Core as runCouncil
+    participant P as Provider
+    U->>API: { input, mode, peerReview? }
+    API->>API: validate (zod) + auth()
+    API->>Core: runCouncil(onProgress, signal)
+    Core->>P: Phase 1 — specialists (parallel)
+    P-->>Core: responses
+    Core-->>API: progress events
+    API-->>U: NDJSON { kind: "progress" } …
+    Core->>P: Phase 2 — judge synthesis
+    P-->>Core: final report
+    Core-->>API: result
+    API-->>U: NDJSON { kind: "result", result }
+```
 
 ## 4. Main Architectural Principle
 

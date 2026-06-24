@@ -171,6 +171,23 @@ A per-run analysis option that inserts an anonymized peer-review/ranking phase b
 
 A hidden, unlinked page at `/discuss` where a small panel of agents debate a topic back-and-forth, live — a different orchestration from the council (which answers in parallel then synthesizes). There is no judge; the agents simply converse as peers.
 
+```mermaid
+sequenceDiagram
+    participant U as Browser
+    participant API as /api/discuss
+    participant D as runDiscussion
+    loop each round (1..N)
+        loop each agent, in panel order
+            D->>D: agent speaks, seeing the full transcript
+            D-->>API: turn_completed
+            API-->>U: NDJSON turn (streamed live)
+        end
+    end
+    opt summarizer selected
+        D-->>U: summary
+    end
+```
+
 **How it works:**
 - The user enters a topic, picks **2–4 agents** (any non-judge persona from the existing templates), and a **round limit (1–6)** — the loop bound that caps how many times each agent speaks.
 - Turns run **sequentially in round-robin order**: within each round every agent speaks once, in selection order, seeing the full transcript so far and reacting to it. Total turns = agents × rounds.
@@ -182,6 +199,16 @@ A hidden, unlinked page at `/discuss` where a small panel of agents debate a top
 - **Optional summarizer:** the user can pick a final-judge/synthesizer persona (via `getSummarizerPersonas()`) to distill the whole transcript into one user-facing summary after the rounds finish — or choose "No summary". Surfaced as `RunDiscussionResult.summary` (a `DiscussionSummary`, omitted when none was selected) and `summary_started` / `summary_completed` progress events, rendered in its own panel below the conversation.
 - **Degenerate-reply retry:** turns (and the summary) whose model reply is empty, trivially short, or a bare label/classification line (e.g. `User Safety: safe`) are detected by `isDegenerateResponse` and re-generated up to twice with a nudging reminder; a persistently unusable reply is recorded as an `ok: false` placeholder rather than polluting the transcript.
 - **Saved history + interrupted-run recovery:** finished, stopped, or interrupted discussions are persisted per user (max 5, newest-first) and reachable from a **History** dropdown in the header — load one back into view or delete it; a **+ New** button clears the page for a fresh run. History is backed by the database (same `DB_PROVIDER` switch as council conversations). Separately, the *live* transcript is mirrored to `localStorage` as it streams, so a reload mid-run — or one after the page was closed — restores what had been said. The server run itself is tied to the request connection and is aborted on disconnect, so it cannot be *resumed*; a transcript whose run was cut off is surfaced as **"interrupted"** with a banner, not silently treated as complete.
+
+Persistence is split: the live transcript is mirrored to `localStorage` on every turn (so a reload mid-run restores it), while finished/stopped/interrupted runs are saved to the database-backed history.
+
+```mermaid
+flowchart TD
+    RUN["Live discussion"] -->|"every turn"| LS[("localStorage<br/>roundtable:current")]
+    RUN -->|"done / stopped / interrupted"| DB[("Database via /api/discussions<br/>history · max 5 per user")]
+    LS -->|"reopen page"| RESTORE["Restore transcript<br/>(was running → marked interrupted)"]
+    DB -->|"History dropdown"| LOAD["Load a past discussion"]
+```
 
 **Touchpoints:**
 - **Page:** `src/app/discuss/page.tsx` — self-contained client component, **not linked from any nav** (reachable only by URL).

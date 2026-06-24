@@ -22,53 +22,33 @@ Every council mode runs the same engine. By default it's a **two-phase** flow. O
 
 ### Standard analysis (two phases)
 
-```
-Your Question
-    ↓
-┌─────────────────────────────────────────┐
-│  Phase 1: Specialist Agents Respond     │
-│  Each agent provides independent        │
-│  analysis from its unique perspective,  │
-│  running in parallel                    │
-└─────────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────────┐
-│  Phase 2: Judge Synthesis               │
-│  A judge agent reads the specialists'   │
-│  responses (anonymized as Response      │
-│  A/B/C to prevent bias) and produces    │
-│  the final report                       │
-└─────────────────────────────────────────┘
-    ↓
-Final Report
+```mermaid
+flowchart TD
+    Q["Your question"] --> P1
+    subgraph P1["Phase 1 · Specialists (parallel)"]
+      direction LR
+      A1["Agent A"]
+      A2["Agent B"]
+      A3["Agent C"]
+    end
+    P1 --> J["Phase 2 · Judge synthesis<br/>reads responses anonymized as A/B/C"]
+    J --> R["Final report"]
 ```
 
 ### Peer Review analysis (three phases)
 
-```
-Your Question
-    ↓
-┌─────────────────────────────────────────┐
-│  Phase 1: Specialist Agents Respond     │
-│  Each agent provides independent        │
-│  analysis from its unique perspective,  │
-│  running in parallel                    │
-└─────────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────────┐
-│  Phase 2: Peer Review & Ranking         │
-│  Each specialist evaluates and ranks    │
-│  the other responses, shown anonymized  │
-│  as Response A/B/C to prevent bias      │
-└─────────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────────┐
-│  Phase 3: Judge Synthesis               │
-│  The judge weighs the peer rankings     │
-│  while synthesizing the final report    │
-└─────────────────────────────────────────┘
-    ↓
-Final Report
+```mermaid
+flowchart TD
+    Q["Your question"] --> P1
+    subgraph P1["Phase 1 · Specialists (parallel)"]
+      direction LR
+      A1["Agent A"]
+      A2["Agent B"]
+      A3["Agent C"]
+    end
+    P1 --> P2["Phase 2 · Peer review and ranking<br/>each specialist ranks the anonymized responses"]
+    P2 --> J["Phase 3 · Judge synthesis<br/>weighs the peer rankings"]
+    J --> R["Final report"]
 ```
 
 ## Council Modes
@@ -220,7 +200,28 @@ git push --follow-tags
 
 ## Architecture
 
-The project is a **modular monolith** — a single deployable Next.js application with clear internal boundaries:
+The project is a **modular monolith** — a single deployable Next.js application with clear internal boundaries. Both the web UI and the CLI drive the same Council Core; the core depends only on the provider interface, never on the UI:
+
+```mermaid
+flowchart TD
+    UI["Web UI · Next.js / React"] -->|"NDJSON stream"| API["API routes<br/>src/app/api"]
+    CLI["CLI · npm run council"] --> CORE
+    API --> CORE["Council Core<br/>runCouncil · runDiscussion"]
+    CORE --> MODES["Modes"]
+    CORE --> AGENTS["Agents"]
+    CORE --> PROMPTS["Prompts"]
+    CORE --> PROV["LLM Provider interface"]
+    PROV --> MOCK["Mock provider"]
+    PROV --> OR["OpenRouter"]
+    API --> STORE["Storage provider"]
+    STORE --> LOCAL["Local JSON files"]
+    STORE --> SUPA["Supabase"]
+    API --> AUTH["NextAuth"]
+    classDef core fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
+    class CORE core;
+```
+
+The internal module layout:
 
 ```
 src/
