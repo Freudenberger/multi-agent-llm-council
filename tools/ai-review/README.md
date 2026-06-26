@@ -21,6 +21,24 @@ same seam the council uses — so it runs **keyless** under `LLM_PROVIDER=mock` 
 heuristic verdict) and against **OpenRouter** in CI. The schema is fail-closed: an unparseable
 response becomes a hard `fail`, never a silent pass.
 
+## Three engines, one contract
+
+All three share [schema.ts](./schema.ts) + [criteria.md](./criteria.md) and the deterministic
+DoD gate; they differ in how they reach the model:
+
+| Engine | Command | SDK | Shape | Keyless mock |
+| ------ | ------- | --- | ----- | :----------: |
+| **v1** | `npm run review` | in-house `createProvider()` | prompt → parse → repair (post-hoc Zod) | ✅ |
+| **v2** | `npm run review:v2` | `@openrouter/sdk` (`callModel`) | single-shot **scorer**, native `json_schema` | ❌ |
+| **v3** | `npm run review:v3` | **Vercel AI SDK** (`ai`) + `@openrouter/ai-sdk-provider` | **agentic tool-loop** — reads repo files for context (`stopWhen: stepCountIs`), then `Output.object` | ❌ |
+
+**Why v3 (Vercel AI SDK):** v2 was a single model call — defensible as an MVP scorer, but not an
+*agent*. v3 is a genuine tool loop: the model is given a sandboxed `read_repo_file` tool and may
+pull the surrounding source for a changed function (or confirm a guard exists) before scoring,
+reporting which files it read and how many steps it took. The file tool validates every
+LLM-supplied path against the repo root (`resolveRepoPath`, covered by
+[tests](../../tests/ai-review/reviewAgentV3.test.ts)) so it can't read outside the project.
+
 ## Run it locally (keyless)
 
 ```bash

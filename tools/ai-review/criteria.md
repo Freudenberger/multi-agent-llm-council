@@ -2,6 +2,8 @@
 
 **Artifact:** 10xChampion path (M5L3, Task 1) · The five acceptance criteria the AI reviewer scores, derived from this stack (Next.js 16 + TypeScript strict + Vitest/Playwright + the modular-monolith rules in [AGENTS.md](../../AGENTS.md)).
 
+> These criteria were **derived via a recorded agent conversation**, not hand-authored — the working session is at [criteria-derivation.md](./criteria-derivation.md).
+
 These are passed to the agent as its rubric ([reviewAgent.ts](./reviewAgent.ts) embeds them in the system prompt) and become the mechanical gate in CI. Each is scored **1–10**; the agent returns a binding **pass/fail**.
 
 | # | Dimension | What a 9–10 looks like | What a 1–3 looks like |
