@@ -5,6 +5,10 @@
 # Run:   npx promptfoo@latest eval -c tools/ai-review/promptfooconfig.yaml
 # View:  npx promptfoo@latest view
 #
+# As a CI regression gate (single reliable model, fails on a broken assertion) this
+# same file is run by .github/workflows/review-eval.yml with --providers overriding
+# the 3 free models below. See that workflow / the README "regression gate" section.
+#
 # Requires OPENROUTER_API_KEY in the environment. Cost + latency per model are
 # shown in the results matrix (that table is the M5L3 "model comparison" evidence).
 

@@ -1,0 +1,104 @@
+# Eval-as-regression-suite (10xChampion, M5L3 Task 3 — promptfoo as a *living* test).
+#
+# The promptfoo matrix (tools/ai-review/eval-results.md) was a one-time artifact for
+# the badge. This workflow turns the same suite into a regression gate: it runs the
+# prepared fixtures (one unsafe → must FAIL, one clean → must PASS, every response must
+# be schema-valid JSON) and FAILS the job if any assertion breaks — so a prompt edit,
+# a schema change, or a model update that silently breaks the JSON contract is caught.
+#
+# Triggers:
+#   - workflow_dispatch — run on demand (pick the model).
+#   - pull_request touching tools/ai-review/** — auto-guard the reviewer's own files
+#     (the regression-catching part). Low noise: only fires when the reviewer changes.
+#
+# Gate model: a single, reliable structured-output model (NOT the 3 free models in
+# promptfooconfig.yaml — those are the *comparison* matrix and are documented as
+# unfit for a strict JSON contract; see eval-results.md). Override via the input or
+# the OPENROUTER_MODEL repo variable.
+
+name: AI Review Eval (regression gate)
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "OpenRouter model to gate against (must do reliable structured output)."
+        required: false
+        default: "openrouter/free" # cheap-but-reliable structured-output model; override with OPENROUTER_MODEL repo variable if you want a different one
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "tools/ai-review/**"
+      - ".github/workflows/review-eval.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: review-eval-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    name: promptfoo regression gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: "npm"
+
+      # Match the other workflows: pin npm 11 so `npm ci` stays deterministic
+      # against the lockfileVersion-3 package-lock.json.
+      - run: npm install -g npm@11
+      - run: npm ci
+
+      - name: Run promptfoo eval as a gate
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MODEL: ${{ github.event.inputs.model || vars.OPENROUTER_MODEL || 'openrouter/free' }}
+        run: |
+          # No key → nothing to run. The eval hits real models; there is no mock.
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::warning::OPENROUTER_API_KEY not set — skipping the eval gate (it needs a real key)."
+            exit 0
+          fi
+
+          echo "----- gating the reviewer against: ${MODEL} -----"
+          # Override the file's 3-model comparison set with the single gate model.
+          # Don't trust promptfoo's exit code (its semantics vary by version) — let
+          # it write the JSON, then judge pass/fail from results.stats deterministically.
+          set +e
+          npx promptfoo eval \
+            -c tools/ai-review/promptfooconfig.yaml \
+            --providers "openrouter:${MODEL}" \
+            --no-cache \
+            --output eval-gate.json
+          set -e
+
+          node -e '
+            const fs = require("fs");
+            if (!fs.existsSync("eval-gate.json")) {
+              console.error("::error::no eval output written — promptfoo crashed before producing results");
+              process.exit(1);
+            }
+            const j = JSON.parse(fs.readFileSync("eval-gate.json", "utf8"));
+            const s = (j.results && j.results.stats) || j.stats || {};
+            const failed = s.failures ?? s.failureCount ?? 0;
+            const passed = s.successes ?? s.successCount ?? 0;
+            console.log(`promptfoo gate: ${passed} passed, ${failed} failed`);
+            if (failed > 0) {
+              console.error(`::error::reviewer eval regressed — ${failed} assertion(s) failed against ${process.env.MODEL}`);
+              process.exit(1);
+            }
+          '
+
+      - name: Upload eval output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-eval-gate
+          path: eval-gate.json
+          if-no-files-found: ignore
