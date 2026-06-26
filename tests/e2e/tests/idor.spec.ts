@@ -1,10 +1,12 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 
 /**
- * Locks in the ownership guard at
- * src/app/api/conversations/[id]/route.ts:30-32 — user A must not be able to
- * read user B's saved conversation, and B's conversation must not appear in
- * A's own list. Runs under LLM_PROVIDER=mock so the council run is hermetic.
+ * Locks in the ownership guard in src/app/api/conversations/[id]/route.ts —
+ * user A must not be able to read user B's saved conversation, and B's
+ * conversation must not appear in A's own list. Ownership now lives in the
+ * storage contract (StorageProvider.getOwned), which collapses not-found and
+ * not-owned into a single 404 so a stranger can't even confirm the id exists.
+ * Runs under LLM_PROVIDER=mock so the council run is hermetic.
  */
 
 const PASSWORD = "password123";
@@ -66,9 +68,10 @@ test("user A cannot read user B's conversation", async ({ browser }) => {
   await register(pageA.request, emailA, "User A");
   await login(pageA, emailA);
 
-  // A directly requests B's conversation → must be Forbidden.
+  // A directly requests B's conversation → 404 (not-owned is indistinguishable
+  // from not-found; the guard refuses to confirm the id even exists).
   const direct = await pageA.request.get(`/api/conversations/${bConversationId}`);
-  expect(direct.status()).toBe(403);
+  expect(direct.status()).toBe(404);
 
   // B's conversation must not leak into A's own list either.
   const listRes = await pageA.request.get("/api/conversations");

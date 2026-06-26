@@ -165,6 +165,14 @@ export const supabaseStorage: StorageProvider = {
     return rowToConversation(data as Record<string, unknown>);
   },
 
+  async getOwned(
+    id: string,
+    userId: string,
+  ): Promise<StoredConversation | null> {
+    const conv = await this.get(id);
+    return conv && conv.userId === userId ? conv : null;
+  },
+
   async save(conversation: StoredConversation): Promise<void> {
     const c = getClient();
     if (!c) throw new Error("Supabase client not available");

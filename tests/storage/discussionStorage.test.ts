@@ -84,6 +84,13 @@ describe("discussionStorage (local file provider)", () => {
     expect(await storage.get("test-cap-0")).toBeNull();
   });
 
+  it("getOwned returns the discussion for its owner, null otherwise (IDOR guard)", async () => {
+    await storage.save(makeDiscussion("test-own", "user-1"));
+    expect((await storage.getOwned("test-own", "user-1"))?.id).toBe("test-own");
+    expect(await storage.getOwned("test-own", "user-2")).toBeNull();
+    expect(await storage.getOwned("test-missing", "user-1")).toBeNull();
+  });
+
   it("deletes a discussion", async () => {
     await storage.save(makeDiscussion("test-del", "user-1"));
     await storage.delete("test-del");

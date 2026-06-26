@@ -68,6 +68,15 @@ export const localStorage: StorageProvider = {
     }
   },
 
+  async getOwned(
+    id: string,
+    userId: string,
+  ): Promise<StoredConversation | null> {
+    // ponytail: filter in memory — get() is a single-file read, nothing to push down.
+    const conv = await this.get(id);
+    return conv && conv.userId === userId ? conv : null;
+  },
+
   async save(conversation: StoredConversation): Promise<void> {
     ensureDir();
 

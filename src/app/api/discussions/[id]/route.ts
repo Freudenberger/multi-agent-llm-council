@@ -17,12 +17,10 @@ export async function GET(
     }
 
     const { id } = await params;
-    const discussion = await storage.get(id);
+    // getOwned collapses not-found and not-owned to null → one 404 path.
+    const discussion = await storage.getOwned(id, session.user.id);
     if (!discussion) {
       return NextResponse.json({ error: "Discussion not found" }, { status: 404 });
-    }
-    if (discussion.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.json(discussion);
@@ -46,9 +44,9 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const discussion = await storage.get(id);
-    if (discussion && discussion.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const discussion = await storage.getOwned(id, session.user.id);
+    if (!discussion) {
+      return NextResponse.json({ error: "Discussion not found" }, { status: 404 });
     }
 
     await storage.delete(id);

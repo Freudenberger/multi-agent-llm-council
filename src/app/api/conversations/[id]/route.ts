@@ -17,18 +17,15 @@ export async function GET(
     }
 
     const { id } = await params;
-    const conversation = await storage.get(id);
+    // Ownership is enforced by the contract: getOwned returns null for both
+    // not-found and not-owned, so the two collapse to one 404 (no enumeration).
+    const conversation = await storage.getOwned(id, session.user.id);
 
     if (!conversation) {
       return NextResponse.json(
         { error: "Conversation not found" },
         { status: 404 },
       );
-    }
-
-    // Only the owner can access
-    if (conversation.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     return NextResponse.json(conversation);
@@ -56,10 +53,13 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // Verify ownership before deleting
-    const conversation = await storage.get(id);
-    if (conversation && conversation.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Only delete what the caller owns; not-found and not-owned both → 404.
+    const conversation = await storage.getOwned(id, session.user.id);
+    if (!conversation) {
+      return NextResponse.json(
+        { error: "Conversation not found" },
+        { status: 404 },
+      );
     }
 
     await storage.delete(id);

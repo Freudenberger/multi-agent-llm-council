@@ -31,7 +31,14 @@ export type ConversationSummary = {
 export type StorageProvider = {
   /** List conversations for a user (newest first). */
   list(userId: string): Promise<ConversationSummary[]>;
-  /** Get a single conversation by ID. */
+  /**
+   * Get a conversation by ID **only if `userId` owns it**. Returns `null` for
+   * both not-found and not-owned — the two collapse so callers can't tell them
+   * apart (closes the enumeration side-channel). This is the only accessor
+   * route handlers should use; ownership is then guaranteed by the type.
+   */
+  getOwned(id: string, userId: string): Promise<StoredConversation | null>;
+  /** Get a single conversation by ID, ignoring ownership. Internal/test use only — never reachable from a route. */
   get(id: string): Promise<StoredConversation | null>;
   /** Save a new conversation. Enforces max conversations per user (deletes oldest). */
   save(conversation: StoredConversation): Promise<void>;
@@ -79,6 +86,9 @@ export type DiscussionListItem = {
  */
 export type DiscussionStorageProvider = {
   list(userId: string): Promise<DiscussionListItem[]>;
+  /** Get a discussion by ID only if `userId` owns it; `null` collapses not-found and not-owned. Route-safe accessor. */
+  getOwned(id: string, userId: string): Promise<StoredDiscussion | null>;
+  /** Get a discussion by ID, ignoring ownership. Internal/test use only. */
   get(id: string): Promise<StoredDiscussion | null>;
   save(discussion: StoredDiscussion): Promise<void>;
   delete(id: string): Promise<void>;

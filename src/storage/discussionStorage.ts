@@ -71,6 +71,11 @@ const localDiscussionStorage: DiscussionStorageProvider = {
     }
   },
 
+  async getOwned(id: string, userId: string): Promise<StoredDiscussion | null> {
+    const d = await this.get(id);
+    return d && d.userId === userId ? d : null;
+  },
+
   async save(discussion: StoredDiscussion): Promise<void> {
     ensureDir();
     const fp = filePath(discussion.id);
@@ -196,6 +201,11 @@ const supabaseDiscussionStorage: DiscussionStorageProvider = {
       return null;
     }
     return rowToDiscussion(data as Record<string, unknown>);
+  },
+
+  async getOwned(id: string, userId: string): Promise<StoredDiscussion | null> {
+    const d = await this.get(id);
+    return d && d.userId === userId ? d : null;
   },
 
   async save(discussion: StoredDiscussion): Promise<void> {

@@ -213,6 +213,26 @@ describe("localStorage", () => {
     });
   });
 
+  describe("getOwned", () => {
+    it("returns the conversation when the user owns it", async () => {
+      await localStorage.save(makeConversation("test-owned-1", "owner"));
+      const result = await localStorage.getOwned("test-owned-1", "owner");
+      expect(result).not.toBeNull();
+      expect(result!.id).toBe("test-owned-1");
+    });
+
+    it("returns null when another user requests it (IDOR guard)", async () => {
+      await localStorage.save(makeConversation("test-owned-2", "owner"));
+      const result = await localStorage.getOwned("test-owned-2", "stranger");
+      expect(result).toBeNull();
+    });
+
+    it("returns null for a non-existent ID (indistinguishable from not-owned)", async () => {
+      const result = await localStorage.getOwned("does-not-exist", "anyone");
+      expect(result).toBeNull();
+    });
+  });
+
   describe("delete", () => {
     it("should delete a conversation by ID", async () => {
       await localStorage.save(makeConversation("test-del-1", "user-del"));
