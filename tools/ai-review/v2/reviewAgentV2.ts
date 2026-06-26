@@ -36,6 +36,8 @@ Scoring rules (read carefully):
 - securitySafety defaults to 8-10 when the diff contains no concrete code-level vulnerability. Reserve <=5 for a real, demonstrable vulnerability.
 - The choice of LLM model/provider (including free tiers such as "openrouter/free"), CI/tooling/config values, and dependency/version choices are OUT OF SCOPE for securitySafety. Never lower securitySafety or raise a "blocker" because of which model, provider, or free tier is configured — that is not a code vulnerability.
 - A "blocker" finding is only for a genuine, code-level security or correctness defect — not for stylistic, tooling, or model-selection opinions.
+- findings describe PROBLEMS ONLY. NEVER emit a finding to praise, approve, or merely describe a change. If the code is good, say so in "summary" and emit NO finding for it. "severity" ranks a DEFECT's seriousness; never attach blocker/major/minor/nit to a positive or neutral observation. A security IMPROVEMENT (e.g. adding an ownership/authorization check, validating input) is NOT a finding and NOT a blocker — it RAISES securitySafety, it never lowers it.
+- Only emit a finding when the diff itself shows the issue, in the file it shows it. Do NOT attribute a change to a file whose diff does not contain it.
 - Some diff entries are NOT application code: documentation (.md), config/permission files (e.g. .claude/settings.local.json), lockfiles, and CI YAML. Their contents are data/permissions, not source — do NOT apply code conventions (Core/UI independence, error taxonomy, "no any") to them or raise code-convention findings about them.
 
 Verdict rule: "fail" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise "pass".

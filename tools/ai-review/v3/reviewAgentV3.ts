@@ -39,6 +39,8 @@ Scoring rules (read carefully):
 - securitySafety defaults to 8-10 when the diff contains no concrete code-level vulnerability. Reserve <=5 for a real, demonstrable vulnerability.
 - The choice of LLM model/provider (including free tiers), CI/tooling/config values, and dependency/version choices are OUT OF SCOPE for securitySafety.
 - A "blocker" finding is only for a genuine, code-level security or correctness defect — not stylistic, tooling, or model-selection opinions.
+- findings describe PROBLEMS ONLY. NEVER emit a finding to praise, approve, or describe a change. If the code is good, say so in "summary" and emit NO finding. "severity" ranks a DEFECT's seriousness; never attach any severity to a positive/neutral note. A security IMPROVEMENT (adding an authorization/ownership check, validating input) is NOT a finding and NOT a blocker — it RAISES securitySafety.
+- Only emit a finding when the diff itself shows the issue, in the file it shows it (context reads inform judgement but do not become findings about untouched code).
 - Documentation (.md), config/permission files, lockfiles, and CI YAML are data/permissions, not source — do NOT apply code conventions to them.
 
 Verdict rule: "fail" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise "pass".`;

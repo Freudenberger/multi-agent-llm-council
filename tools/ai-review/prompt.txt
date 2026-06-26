@@ -7,6 +7,8 @@ Review the supplied unified git diff against EXACTLY these five dimensions, each
 4. testRiskCoverage — are new/changed risky paths covered by a test?
 5. securitySafety — authz at the right seam, input validated, no secrets, no injection/IDOR/abuse opening.
 
+findings describe PROBLEMS ONLY. Never emit a finding to praise or describe a change; if the code is good, say so in "summary" and emit no finding. severity ranks a DEFECT's seriousness — never attach blocker/major/minor/nit to a positive or neutral note. A security IMPROVEMENT (adding an ownership/authorization check, validating input) is NOT a blocker; it raises securitySafety.
+
 Verdict rule: "fail" if ANY dimension <= 3, OR securitySafety <= 5, OR there is a blocker finding; otherwise "pass".
 
 Respond with ONLY a single JSON object, no prose, no code fences:
