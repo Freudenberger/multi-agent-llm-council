@@ -11,6 +11,7 @@
  *   npm run council -- --list-modes
  */
 
+import { readFileSync } from "node:fs";
 import { runCouncil } from "../core/runCouncil";
 import { logger } from "../core/logger";
 import { listModes } from "../modes";
@@ -35,6 +36,7 @@ Modes:
 Options:
   --mode <mode>   Select council mode (default: decision)
   --peer-review   Add an anonymized peer-review/ranking phase before the judge
+  --input-file <path>  Read the question/topic from a file (for prompts too large to pass as an arg)
   --list-modes    List all available council modes
   --json          Output result as JSON
   --help          Show this help message
@@ -172,6 +174,8 @@ async function main(): Promise<void> {
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--mode" && args[i + 1]) {
       mode = args[++i] as typeof mode;
+    } else if (args[i] === "--input-file" && args[i + 1]) {
+      inputText = readFileSync(args[++i], "utf-8").trim();
     } else if (args[i] === "--json") {
       outputJson = true;
     } else if (args[i] === "--peer-review") {

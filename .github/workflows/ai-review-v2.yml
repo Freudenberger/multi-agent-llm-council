@@ -97,6 +97,7 @@ jobs:
             --diff pr.diff \
             --comment review-comment.md \
             --junit review-junit.xml \
+            --out-json verdict.json \
             --timeout 60 \
             --attempts 3 \
             --no-fail \
@@ -136,6 +137,120 @@ jobs:
           reporter: java-junit
           fail-on-error: false
 
+      # ── Self-review dogfooding loop ──────────────────────────────────────
+      # When the reviewer FAILs, let the product judge its own pipeline: the
+      # council's `decision` mode adjudicates whether the flagged finding is a
+      # real, merge-blocking defect or a false positive. Advisory only — it posts
+      # a second comment and never changes the CI gate. This is the two badges
+      # interlocking: the Champion reviewer's finding, deliberated by the
+      # Architect-grade council product.
+      - name: Council self-review adjudication
+        id: adjudicate
+        if: github.event_name == 'pull_request' && steps.review.outputs.verdict == 'fail' && hashFiles('verdict.json') != ''
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LLM_PROVIDER: openrouter
+          OPENROUTER_MODEL: ${{ vars.OPENROUTER_MODEL || 'openai/gpt-4o-mini' }}
+        run: |
+          set +e  # advisory: a council hiccup must never fail the build
+
+          # 1) Build the adjudication prompt from the structured verdict + the diff.
+          #    Written to a file so the (large, multi-line) diff never has to be
+          #    shell-quoted into a CLI argument.
+          node -e '
+            const fs = require("fs");
+            const v = JSON.parse(fs.readFileSync("verdict.json", "utf8"));
+            const dims = ["implementationCorrectness","idiomaticity","simplicity","testRiskCoverage","securitySafety"];
+            const scores = dims.map(d => `${d}=${v[d]}`).join(", ");
+            const blocking = (v.findings || []).filter(f => f.severity === "blocker" || f.severity === "major");
+            const findingLines = (blocking.length ? blocking : (v.findings || []))
+              .map(f => `- [${f.severity}] ${f.file ? f.file + ": " : ""}${f.note}`).join("\n") || "(no specific findings; the fail came from low dimension scores)";
+            let diff = "";
+            try { diff = fs.readFileSync("pr.diff", "utf8"); } catch {}
+            if (diff.length > 6000) diff = diff.slice(0, 6000) + "\n…(diff truncated)";
+            const prompt = [
+              "An automated AI code reviewer returned a FAIL verdict on a pull request.",
+              "Act as an independent council and decide whether this PR should actually be blocked from merging, or whether the reviewer is being a false positive / overcautious. Be specific and decisive — end with a clear MERGE or DO-NOT-MERGE recommendation.",
+              "",
+              `Reviewer summary: ${v.summary}`,
+              `Reviewer dimension scores (1-10): ${scores}`,
+              "Reviewer findings flagged as blocking:",
+              findingLines,
+              "",
+              "Unified diff under review (may be truncated):",
+              diff,
+            ].join("\n");
+            fs.writeFileSync("adj-prompt.txt", prompt, "utf8");
+            console.log(`adjudication prompt: ${prompt.length} chars, ${blocking.length} blocking finding(s)`);
+          '
+
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::warning::no key — skipping council adjudication."
+            exit 0
+          fi
+
+          # 2) Run the council. --silent drops npm's banner; --json gives us the report.
+          npm run council --silent -- --mode decision --json --input-file adj-prompt.txt > council.raw 2> council.err
+          echo "council exit: $?"
+
+          # 3) Parse the council result (slice past the CLI's own banner) and render a comment.
+          node -e '
+            const fs = require("fs");
+            let raw = "";
+            try { raw = fs.readFileSync("council.raw", "utf8"); } catch {}
+            // The CLI prints logger lines + a banner before the JSON and one more
+            // log line after it, so brace-index slicing is wrong. The pretty-printed
+            // result opens with a line that is exactly "{" and closes with one that
+            // is exactly "}" — anchor on those.
+            const lines = raw.split(/\r?\n/);
+            const start = lines.findIndex(l => l === "{");
+            let end = -1;
+            for (let i = lines.length - 1; i > start; i--) { if (lines[i] === "}") { end = i; break; } }
+            let r = null;
+            try { if (start >= 0 && end > start) r = JSON.parse(lines.slice(start, end + 1).join("\n")); } catch {}
+            if (!r || !r.finalReport) {
+              fs.writeFileSync("council-comment.md",
+                "### 🏛️ Council self-review (advisory)\n\n_The council could not be reached for adjudication on this run._\n", "utf8");
+              process.exit(0);
+            }
+            const fr = r.finalReport;
+            const recs = (fr.recommendations || []).map(x => `- ${x}`).join("\n");
+            const concl = (fr.keyConclusions || []).map(x => `- ${x}`).join("\n");
+            const body = [
+              "### 🏛️ Council self-review (advisory)",
+              "",
+              "_The reviewer returned **FAIL**. The council (`decision` mode) was asked whether this is genuinely merge-blocking. This is advisory and does **not** change the CI gate._",
+              "",
+              `**Summary:** ${fr.summary || "(none)"}`,
+              concl ? `\n**Key conclusions**\n${concl}` : "",
+              recs ? `\n**Recommendations**\n${recs}` : "",
+              `\n**Council confidence:** ${fr.confidence}/5`,
+              "",
+              "<sub>Self-review dogfooding loop — the LLM Council adjudicating its own AI-review pipeline.</sub>",
+            ].filter(Boolean).join("\n");
+            fs.writeFileSync("council-comment.md", body, "utf8");
+            console.log("wrote council-comment.md");
+          '
+          exit 0
+
+      - name: Post council adjudication comment
+        if: steps.adjudicate.outcome == 'success' && hashFiles('council-comment.md') != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('council-comment.md', 'utf8');
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const marker = 'Council self-review (advisory)';
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
       - name: Upload review artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -145,6 +260,10 @@ jobs:
             review-comment.md
             review-junit.xml
             review.out
+            verdict.json
+            adj-prompt.txt
+            council-comment.md
+            council.raw
           if-no-files-found: ignore
 
       - name: Gate (informational)

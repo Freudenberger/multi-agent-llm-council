@@ -25,7 +25,7 @@ const USAGE = `Usage:
   npm run review:v2 -- --git [base]      review changes vs a ref (default: origin/main → auto)
   git diff | npm run review:v2           review a piped diff
 
-Flags: --json  --comment <file>  --junit <file>  --timeout <sec>  --model <id>  --attempts <n>  --no-fail  --verbose|-v
+Flags: --json  --comment <file>  --junit <file>  --out-json <file>  --timeout <sec>  --model <id>  --attempts <n>  --no-fail  --verbose|-v
 Requires OPENROUTER_API_KEY.
 `;
 
@@ -224,6 +224,10 @@ async function main() {
   if (commentFile) writeFileSync(commentFile, markdown, "utf8");
   const junitFile = arg("--junit");
   if (junitFile) writeFileSync(junitFile, toJUnit(verdict, model), "utf8");
+  // Always-on structured sink (independent of --json stdout mode) so downstream
+  // steps — e.g. the council self-review adjudication — can read the findings.
+  const outJsonFile = arg("--out-json");
+  if (outJsonFile) writeFileSync(outJsonFile, JSON.stringify(verdict, null, 2), "utf8");
 
   process.stdout.write(
     (has("--json") ? JSON.stringify(verdict, null, 2) : markdown) + "\n",

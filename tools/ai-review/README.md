@@ -75,6 +75,16 @@ npx promptfoo@latest view  # opens the results matrix (cost + latency per model)
 
 The results matrix (pass/fail per model with cost + time) is the M5L3 model-comparison evidence.
 
+### As a regression gate (living test)
+
+The same suite runs in CI as a **regression gate** via
+[../../.github/workflows/review-eval.yml](../../.github/workflows/review-eval.yml): on demand
+(`workflow_dispatch`) and automatically on any PR that touches `tools/ai-review/**`. It runs the
+fixtures against **one reliable model** (overriding the 3-free comparison set with `--providers`)
+and **fails the job** if any assertion breaks — so a prompt edit, schema change, or model update
+that silently breaks the strict JSON contract or flips a known-unsafe fixture to `pass` is caught.
+The free-model matrix above stays as documentation, not as the gate oracle.
+
 ---
 
 ## Capturing the 3 badge screenshots (the only step I can't do for you)

@@ -225,3 +225,54 @@ Every page (main, `/discuss`, `/login`, `/register`) shows a shared footer with 
 
 - **Shared component:** `src/app/components/Footer.tsx` — renders `Multi-Agent LLM Council · v<version> — …`; replaces the previously inline footer on the main page so all four pages match.
 - **Version from the backend:** the footer fetches `GET /api/version`, which returns `{ version }` — `APP_VERSION` when a build stamps it, otherwise the `package.json` version (so local/dev shows a real number rather than the `"unknown"` that `/api/health` reports). The version is never hard-coded in the client.
+
+### 13. Self-Review Dogfooding Loop (CI pipeline)
+
+The project's own AI code-review pipeline reviews every PR; when it returns a **FAIL** verdict, the product judges its own pipeline — the **council** (`decision` mode) adjudicates whether the flagged finding is a genuine, merge-blocking defect or a false positive, and posts its verdict as a second, **advisory** PR comment. This is the two 10xChampion/Architect surfaces interlocking: the AI reviewer produces a finding, and the deliberation product the repo ships decides whether to trust it.
+
+```mermaid
+flowchart TD
+    PR["Pull request opened / updated"] --> REV["AI reviewer v2<br/>(@openrouter/sdk, json_schema)"]
+    REV -->|writes| VC["verdict.json<br/>(--out-json)"]
+    REV --> CMT["PR comment: scores + verdict"]
+    VC --> Q{"verdict == fail?"}
+    Q -->|pass| DONE["No adjudication"]
+    Q -->|fail| BUILD["Build adjudication prompt<br/>blocking findings + scores + truncated diff<br/>→ adj-prompt.txt"]
+    BUILD --> COUNCIL["npm run council --mode decision<br/>--json --input-file adj-prompt.txt"]
+    COUNCIL --> PARSE["Parse finalReport<br/>(line-anchored past CLI logs/banner)"]
+    PARSE --> ADJ["2nd PR comment:<br/>🏛️ Council self-review (advisory)<br/>summary · conclusions · recs · confidence"]
+    ADJ -.->|never changes| GATE["CI gate (unchanged)"]
+```
+
+**Advisory by design:** the adjudication step runs `set +e` / `exit 0` throughout, so a council hiccup (or a missing key) never fails the build, and it **never** touches the pass/fail gate — it only adds a comment. The comment is upserted on a marker, so re-runs update one rolling comment rather than spamming.
+
+```mermaid
+sequenceDiagram
+    participant CI as ai-review-v2.yml
+    participant Rev as Reviewer v2
+    participant Co as Council (decision)
+    participant PR as Pull Request
+    CI->>Rev: review pr.diff (--out-json verdict.json)
+    Rev-->>PR: review comment (scores + verdict)
+    CI->>CI: verdict == fail ?
+    alt fail
+        CI->>CI: build adj-prompt.txt from verdict.json + diff
+        CI->>Co: council --mode decision --input-file adj-prompt.txt
+        Co-->>CI: finalReport (summary, recs, confidence)
+        CI-->>PR: 🏛️ Council self-review (advisory) comment
+    else pass
+        CI->>CI: skip adjudication
+    end
+```
+
+**Enabling flags (additive, reusable):**
+- `--out-json <file>` on the v2 reviewer — writes the structured verdict to a file regardless of stdout mode, so downstream steps can read the findings without re-running the review or scraping the Markdown comment.
+- `--input-file <path>` on the council CLI — reads the question/topic from a file, so the (large, multi-line) diff + findings prompt never has to be shell-quoted into a CLI argument.
+
+**Cost note:** each failing PR triggers a full council run (specialists + judge) on top of the review — several extra model calls. It only fires on `fail`, and stays advisory.
+
+**Touchpoints:**
+- **Pipeline:** `.github/workflows/ai-review-v2.yml` — the `Council self-review adjudication` + `Post council adjudication comment` steps (gated on `pull_request` and `verdict == fail`).
+- **Reviewer:** `tools/ai-review/v2/cli.ts` — `--out-json` sink.
+- **Council CLI:** `src/cli/index.ts` — `--input-file` input source.
+- **Adjudication model:** `OPENROUTER_MODEL` repo variable (default `openai/gpt-4o-mini`); requires the `OPENROUTER_API_KEY` secret (skips cleanly without it).
