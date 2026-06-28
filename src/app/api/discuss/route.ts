@@ -17,6 +17,7 @@ import { z } from "zod";
 import { auth } from "@/auth/config";
 import { userStorage } from "@/auth/userStorage";
 import { resolveProviderOverride } from "@/auth/providerOverride";
+import { incr, observeDuration } from "@/core/metrics";
 
 const requestSchema = z.object({
   topic: z
@@ -176,6 +177,8 @@ export async function POST(request: NextRequest) {
         });
 
         const durationMs = Math.round(performance.now() - start);
+        incr("discussion_runs_total", { status: "ok" });
+        observeDuration("discussion_run_duration_ms", durationMs);
         log.info("API request completed", {
           durationMs,
           turns: result.turns.length,
@@ -186,8 +189,10 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         const durationMs = Math.round(performance.now() - start);
         if (error instanceof CouncilAbortedError || ac.signal.aborted) {
+          incr("discussion_runs_total", { status: "cancelled" });
           log.info("Discussion cancelled", { runId, durationMs });
         } else {
+          incr("discussion_runs_total", { status: "error" });
           const { status, body: errorBody } = errorResponse(error);
           log.error("API request failed", {
             durationMs,

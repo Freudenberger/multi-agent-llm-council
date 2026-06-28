@@ -15,6 +15,7 @@ import { resolveProviderOverride } from "@/auth/providerOverride";
 import type { ProviderOverride } from "@/providers/types";
 import { createStorage } from "@/storage";
 import { checkRateLimit } from "@/core/rateLimit";
+import { incr, observeDuration } from "@/core/metrics";
 
 // Each council run fans out to the LLM provider, so cap how often a single
 // client can trigger one. Generous enough for real use, tight enough that an
@@ -135,6 +136,7 @@ export async function POST(request: NextRequest) {
   // Rate limit before doing any work — a blocked call must not reach the provider.
   const rate = checkRateLimit(clientKey(request), RATE_LIMIT, RATE_WINDOW_MS);
   if (!rate.allowed) {
+    incr("council_runs_total", { status: "rate_limited" });
     log.info("API request rate limited", { retryAfterSec: rate.retryAfterSec });
     return NextResponse.json(
       {
@@ -232,6 +234,10 @@ export async function POST(request: NextRequest) {
         });
 
         const durationMs = Math.round(performance.now() - start);
+        incr("council_runs_total", { mode: result.modeId, status: "ok" });
+        observeDuration("council_run_duration_ms", durationMs, {
+          mode: result.modeId,
+        });
         log.info("API request completed", {
           mode: result.modeId,
           durationMs,
@@ -260,9 +266,14 @@ export async function POST(request: NextRequest) {
         const durationMs = Math.round(performance.now() - start);
 
         if (error instanceof CouncilAbortedError || ac.signal.aborted) {
+          incr("council_runs_total", { status: "cancelled" });
           log.info("Council run cancelled", { runId, durationMs });
           // The client has gone away; nothing to send.
         } else {
+          incr("council_runs_total", {
+            mode: validation.data.mode,
+            status: "error",
+          });
           const { status, body: errorBody } = errorResponse(error);
           log.error("API request failed", {
             durationMs,
