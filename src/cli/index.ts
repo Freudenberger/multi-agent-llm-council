@@ -12,9 +12,23 @@
  */
 
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { config as dotenvConfig } from "dotenv";
 import { runCouncil } from "../core/runCouncil";
 import { logger } from "../core/logger";
 import { listModes } from "../modes";
+
+/**
+ * Load env from .env files the way Next.js does for the web app, so the CLI sees
+ * the same LLM_PROVIDER / OPENROUTER_API_KEY config. tsx (unlike `next`) does not
+ * auto-load these. Precedence: real process.env > .env.local > .env (dotenv never
+ * overrides an already-set var). Returns the keys newly set, for testing.
+ */
+export function loadEnvFiles(paths: string[] = [".env.local", ".env"]): string[] {
+  const before = new Set(Object.keys(process.env));
+  dotenvConfig({ path: paths, quiet: true });
+  return Object.keys(process.env).filter((k) => !before.has(k));
+}
 
 function printUsage(): void {
   console.log(`
@@ -56,7 +70,50 @@ function printModes(): void {
   }
 }
 
-function formatReport(result: Awaited<ReturnType<typeof runCouncil>>): string {
+export type CliMode =
+  | "decision"
+  | "idea"
+  | "criticalReview"
+  | "learning"
+  | "technical"
+  | "answer"
+  | "swot";
+
+export interface ParsedArgs {
+  mode: CliMode;
+  outputJson: boolean;
+  peerReview: boolean;
+  inputText: string;
+}
+
+/** Parse CLI argv (the slice after `node script`). readFile lets tests stub --input-file. */
+export function parseArgs(
+  args: string[],
+  readFile: (path: string) => string = (p) => readFileSync(p, "utf-8"),
+): ParsedArgs {
+  let mode: CliMode = "decision";
+  let outputJson = false;
+  let peerReview = false;
+  let inputText = "";
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--mode" && args[i + 1]) {
+      mode = args[++i] as CliMode;
+    } else if (args[i] === "--input-file" && args[i + 1]) {
+      inputText = readFile(args[++i]).trim();
+    } else if (args[i] === "--json") {
+      outputJson = true;
+    } else if (args[i] === "--peer-review") {
+      peerReview = true;
+    } else if (!args[i].startsWith("--")) {
+      inputText = args[i];
+    }
+  }
+
+  return { mode, outputJson, peerReview, inputText };
+}
+
+export function formatReport(result: Awaited<ReturnType<typeof runCouncil>>): string {
   const report = result.finalReport;
 
   const lines: string[] = [];
@@ -153,6 +210,7 @@ function formatReport(result: Awaited<ReturnType<typeof runCouncil>>): string {
 }
 
 async function main(): Promise<void> {
+  loadEnvFiles();
   const args = process.argv.slice(2);
 
   if (args.length === 0 || args.includes("--help")) {
@@ -165,25 +223,7 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  let mode: "decision" | "idea" | "criticalReview" | "learning" | "technical" | "answer" =
-    "decision";
-  let outputJson = false;
-  let peerReview = false;
-  let inputText = "";
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--mode" && args[i + 1]) {
-      mode = args[++i] as typeof mode;
-    } else if (args[i] === "--input-file" && args[i + 1]) {
-      inputText = readFileSync(args[++i], "utf-8").trim();
-    } else if (args[i] === "--json") {
-      outputJson = true;
-    } else if (args[i] === "--peer-review") {
-      peerReview = true;
-    } else if (!args[i].startsWith("--")) {
-      inputText = args[i];
-    }
-  }
+  const { mode, outputJson, peerReview, inputText } = parseArgs(args);
 
   if (!inputText) {
     console.error("Error: No input text provided.");
@@ -222,4 +262,7 @@ async function main(): Promise<void> {
   }
 }
 
-main();
+// ponytail: only auto-run as a script, not when imported by tests
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
