@@ -37,7 +37,7 @@ test.describe("Home page SSR and hydration", () => {
 
     await test.step("assert hydration completed cleanly", async () => {
       const hydrationMessages = consoleMessages.filter((message) =>
-        /hydration|didn't match|hydrated but some attributes|server rendered html/i.test(message),
+        /hydration|didn't match|hydrated but some attributes|server rendered html/i.test(message)
       );
 
       expect(hydrationMessages).toEqual([]);
