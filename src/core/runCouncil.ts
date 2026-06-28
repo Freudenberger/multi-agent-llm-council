@@ -1,21 +1,23 @@
 import type {
   CouncilAgent,
-  CouncilAgentMeta,
   AgentResponse,
   FinalReport,
   RunCouncilInput,
   RunCouncilResult,
 } from "./types";
 import { getSpecialists, getFinalJudge } from "./types";
-import {
-  ModeNotFoundError,
-  ValidationError,
-  CouncilAbortedError,
-} from "./errors";
+import { ModeNotFoundError, ValidationError } from "./errors";
 import { logger, timed } from "./logger";
 import { logRawExchange, logRawEvent } from "./rawTranscript";
 import { getMode } from "../modes";
 import { createProvider } from "../providers";
+import {
+  delay,
+  generateId,
+  randomPick,
+  throwIfAborted,
+  toAgentMeta,
+} from "./helpers";
 import {
   buildAgentUserMessage,
   buildJudgeSystemPrompt,
@@ -32,10 +34,6 @@ const MAX_JUDGE_RETRIES = 2;
 const JUDGE_RETRY_BASE_DELAY_MS = 1000;
 
 // ─── Helpers ────────────────────────────────────────────────────────
-
-function generateId(): string {
-  return `council-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
 
 /**
  * Merges user-provided custom agent overrides into a council mode.
@@ -106,10 +104,6 @@ function normalizeJudges(
   return mode;
 }
 
-function randomPick<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
 /**
  * Assigns a model to every agent that has no explicit `model` by picking one
  * at random from the user's `fallbackModels` list. Each agent is picked
@@ -130,24 +124,6 @@ export function applyFallbackModels(
     agent.model ? agent : { ...agent, model: pick(fallbackModels) },
   );
   return { ...mode, agents };
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Throws CouncilAbortedError if the run's signal has fired. */
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw new CouncilAbortedError();
-}
-
-function toAgentMeta(agent: CouncilAgent): CouncilAgentMeta {
-  return {
-    id: agent.id,
-    name: agent.name,
-    role: agent.role,
-    isFinalJudge: agent.isFinalJudge ?? false,
-  };
 }
 
 /**
@@ -683,7 +659,7 @@ function buildFallbackReport(
 export async function runCouncil(
   input: RunCouncilInput,
 ): Promise<RunCouncilResult> {
-  const runId = input.runId ?? generateId();
+  const runId = input.runId ?? generateId("council");
   const overallStart = performance.now();
 
   logger.info("Council run started", {

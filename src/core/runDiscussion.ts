@@ -1,6 +1,5 @@
 import type {
   CouncilAgent,
-  CouncilAgentMeta,
   DiscussionSummary,
   DiscussionTurn,
   RunDiscussionInput,
@@ -17,6 +16,13 @@ import { logger } from "./logger";
 import { logRawExchange, logRawEvent } from "./rawTranscript";
 import { createProvider } from "../providers";
 import { resolveAgent } from "../agents/defaultAgents";
+import {
+  delay,
+  generateId,
+  randomPick,
+  throwIfAborted,
+  toAgentMeta,
+} from "./helpers";
 import {
   buildDiscussionSystemPrompt,
   buildDiscussionUserMessage,
@@ -55,34 +61,6 @@ export function isDegenerateResponse(content: string): boolean {
   if (trimmed.length < MIN_MEANINGFUL_TURN_LENGTH) return true;
   if (DEGENERATE_LABEL.test(trimmed)) return true;
   return false;
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// ─── Helpers ────────────────────────────────────────────────────────
-
-function generateId(): string {
-  return `discussion-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-}
-
-function randomPick<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
-/** Throws CouncilAbortedError if the run's signal has fired. */
-function throwIfAborted(signal: AbortSignal | undefined): void {
-  if (signal?.aborted) throw new CouncilAbortedError();
-}
-
-function toAgentMeta(agent: CouncilAgent): CouncilAgentMeta {
-  return {
-    id: agent.id,
-    name: agent.name,
-    role: agent.role,
-    isFinalJudge: false,
-  };
 }
 
 /**
@@ -427,7 +405,7 @@ async function runSummary(
 export async function runDiscussion(
   input: RunDiscussionInput,
 ): Promise<RunDiscussionResult> {
-  const runId = input.runId ?? generateId();
+  const runId = input.runId ?? generateId("discussion");
   const overallStart = performance.now();
 
   validate(input);

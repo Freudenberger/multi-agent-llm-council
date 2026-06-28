@@ -1,5 +1,6 @@
 import type { CouncilMode, CouncilModeId } from "../core/types";
-import { agentTemplates } from "../agents/defaultAgents";
+import { ModeNotFoundError } from "../core/errors";
+import { agentTemplates, buildSystemPrompt } from "../agents/defaultAgents";
 
 function buildAgents(...ids: string[]) {
   return ids.map((id) => {
@@ -9,7 +10,9 @@ function buildAgents(...ids: string[]) {
       id: template.id,
       name: template.name,
       role: template.role,
-      systemPrompt: template.perspective,
+      // Compose the shared council framing (base/final rules + output contract)
+      // with the template's perspective, instead of the bare perspective.
+      systemPrompt: buildSystemPrompt(template),
       isFinalJudge: template.isFinalJudge ?? false,
     };
   });
@@ -112,7 +115,7 @@ export const councilModes: Record<CouncilModeId, CouncilMode> = {
 export function getMode(modeId: CouncilModeId): CouncilMode {
   const mode = councilModes[modeId];
   if (!mode) {
-    throw new Error(`Council mode "${modeId}" not found`);
+    throw new ModeNotFoundError(modeId);
   }
   return mode;
 }

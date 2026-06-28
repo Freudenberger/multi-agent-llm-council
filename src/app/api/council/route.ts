@@ -14,6 +14,19 @@ import { userStorage } from "@/auth/userStorage";
 import { resolveProviderOverride } from "@/auth/providerOverride";
 import type { ProviderOverride } from "@/providers/types";
 import { createStorage } from "@/storage";
+import { checkRateLimit } from "@/core/rateLimit";
+
+// Each council run fans out to the LLM provider, so cap how often a single
+// client can trigger one. Generous enough for real use, tight enough that an
+// unauthenticated caller can't loop the endpoint to drain provider budget.
+const RATE_LIMIT = 20;
+const RATE_WINDOW_MS = 60_000;
+
+/** Best-effort client identifier for rate limiting (first X-Forwarded-For hop). */
+function clientKey(request: NextRequest): string {
+  const fwd = request.headers.get("x-forwarded-for");
+  return fwd?.split(",")[0].trim() || "unknown";
+}
 
 const customAgentSchema = z.object({
   id: z.string().min(1),
@@ -118,6 +131,21 @@ export async function POST(request: NextRequest) {
   const runId = generateRunId();
   const log = logger.child({ runId });
   log.info("API request received", { method: "POST", path: "/api/council" });
+
+  // Rate limit before doing any work — a blocked call must not reach the provider.
+  const rate = checkRateLimit(clientKey(request), RATE_LIMIT, RATE_WINDOW_MS);
+  if (!rate.allowed) {
+    log.info("API request rate limited", { retryAfterSec: rate.retryAfterSec });
+    return NextResponse.json(
+      {
+        error: "Too many requests",
+        message: `Rate limit exceeded. Try again in ${rate.retryAfterSec}s.`,
+        type: "rate_limited",
+        retryable: true,
+      },
+      { status: 429, headers: { "Retry-After": String(rate.retryAfterSec) } },
+    );
+  }
 
   // Parse JSON body
   let body: unknown;

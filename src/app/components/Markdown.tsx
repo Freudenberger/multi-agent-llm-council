@@ -274,6 +274,26 @@ export function InlineMarkdown({ content }: { content: string }): ReactNode {
   return <>{renderInline(content)}</>;
 }
 
+/**
+ * Returns the href only if it uses a safe scheme, else "#". Blocks
+ * `javascript:`, `data:`, `vbscript:` etc. that an LLM could emit in a
+ * `[text](url)` link and execute on click. React escapes all text content, so
+ * link hrefs are the one place untrusted markdown can still inject behavior.
+ */
+export function safeHref(href: string): string {
+  const scheme = href.trim().toLowerCase();
+  if (
+    scheme.startsWith("http://") ||
+    scheme.startsWith("https://") ||
+    scheme.startsWith("mailto:") ||
+    scheme.startsWith("/") ||
+    scheme.startsWith("#")
+  ) {
+    return href;
+  }
+  return "#";
+}
+
 /** Render inline markdown: bold, italic, inline code, links */
 function renderInline(text: string): ReactNode[] {
   const nodes: React.ReactNode[] = [];
@@ -318,7 +338,7 @@ function renderInline(text: string): ReactNode[] {
       nodes.push(
         <a
           key={key++}
-          href={match[6]}
+          href={safeHref(match[6])}
           className="text-blue-400 hover:text-blue-300 underline"
           target="_blank"
           rel="noopener noreferrer"
