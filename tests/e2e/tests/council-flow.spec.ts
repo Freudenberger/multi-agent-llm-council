@@ -11,6 +11,11 @@ test.describe("council golden path (mock provider)", () => {
   test("user submits a question and receives a full report", async ({
     page,
   }) => {
+    // A cold Turbopack dev server compiles /api/council on first hit (10-30s)
+    // on top of the mock council's per-agent latency — give the run headroom
+    // over the 30s default so the first cold test isn't a false fail.
+    // (theme-and-pdf.spec.ts and idor.spec.ts bump their timeouts likewise.)
+    test.setTimeout(90_000);
     // Arrange
     await page.goto("/");
 
@@ -72,10 +77,11 @@ test.describe("council golden path (mock provider)", () => {
         .toBeVisible();
     }
 
-    // The judge mock returns this string in §Summary — sourced from
-    // src/providers/mockProvider.ts MOCK_JUDGE_RESPONSES["final judge"].
+    // The judge mock returns this phrase in §Summary — sourced from
+    // composeReportJudge() in src/providers/mockProvider.ts. (Topic-independent
+    // substring so it survives the "${topic}" interpolation in that string.)
     await expect.soft(
-      page.getByText(/the council presents a balanced view/i),
+      page.getByText(/converged on a qualified, balanced position/i),
     ).toBeVisible();
 
     // Copy button is available and clickable on the result
