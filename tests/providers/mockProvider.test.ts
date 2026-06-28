@@ -22,7 +22,10 @@ describe("MockProvider", () => {
     setMockLatency(0);
   });
 
-  const specialist = (userInput: string, persona = "You are the Optimist.") => ({
+  const specialist = (
+    userInput: string,
+    persona = "You are the Optimist.",
+  ) => ({
     systemPrompt: persona,
     userMessage: `You are participating in a decision analysis council.\n\nYour role: Optimist — positive\n\nQuestion/Topic:\n${userInput}\n\nProvide your independent analysis.`,
   });
@@ -82,13 +85,14 @@ describe("MockProvider", () => {
     expect(content).toMatch(/## Confidence Score\n[1-5]/);
   });
 
-  it("produces a direct answer (no report sections) for the answer judge", async () => {
+  it("produces a direct answer (no report sections) with a confidence score for the answer judge", async () => {
     const { content } = await provider.generate({
       systemPrompt: "You are the Final Answer Judge in an answer council.",
       userMessage: "Original Question/Topic:\nWhat should I cook?\n\n---\n",
     });
     expect(content).not.toContain("## Summary");
-    expect(content).not.toContain("## Confidence Score");
+    expect(content).not.toContain("## Key Conclusions");
+    expect(content).toMatch(/## Confidence Score\n[1-5]/);
     expect(content).toContain("What should I cook");
   });
 
@@ -122,10 +126,14 @@ describe("MockProvider", () => {
 
   it("truncates hard when maxTokens is too small", async () => {
     const full = await provider.generate({
-      ...specialist("A reasonably long question about system design trade-offs"),
+      ...specialist(
+        "A reasonably long question about system design trade-offs",
+      ),
     });
     const truncated = await provider.generate({
-      ...specialist("A reasonably long question about system design trade-offs"),
+      ...specialist(
+        "A reasonably long question about system design trade-offs",
+      ),
       maxTokens: 5, // ~20 chars
     });
     expect(truncated.content.length).toBeLessThan(full.content.length);

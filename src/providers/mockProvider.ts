@@ -129,7 +129,9 @@ function clip(s: string, max: number): string {
   if (s.length <= max) return s;
   const cut = s.slice(0, max);
   const lastSpace = cut.lastIndexOf(" ");
-  return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd() + "…";
+  return (
+    (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd() + "…"
+  );
 }
 
 /** Anonymized response labels present in a peer-review user message. */
@@ -173,7 +175,8 @@ const ROLE_VOICES: Record<string, Voice> = {
   optimist: {
     stance: "I see a strong upside here",
     lens: "the opportunity and the best-case payoff",
-    closer: "With focused execution the benefits clearly outweigh the downsides.",
+    closer:
+      "With focused execution the benefits clearly outweigh the downsides.",
   },
   sceptic: {
     stance: "I'm not convinced yet",
@@ -188,17 +191,20 @@ const ROLE_VOICES: Record<string, Voice> = {
   pragmatist: {
     stance: "Let's anchor on what's actually achievable",
     lens: "effort versus impact under current constraints",
-    closer: "Start with the highest-leverage, lowest-cost step and validate early.",
+    closer:
+      "Start with the highest-leverage, lowest-cost step and validate early.",
   },
   "creative thinker": {
     stance: "There's room to reframe this",
     lens: "unconventional angles and adjacent possibilities",
-    closer: "A small twist on the framing could open up a much larger solution space.",
+    closer:
+      "A small twist on the framing could open up a much larger solution space.",
   },
   "market analyst": {
     stance: "The market signal is mixed but real",
     lens: "demand, competition and timing",
-    closer: "A clear differentiator and a tight go-to-market window are decisive.",
+    closer:
+      "A clear differentiator and a tight go-to-market window are decisive.",
   },
   "technical feasibility reviewer": {
     stance: "It's buildable, with caveats",
@@ -213,22 +219,26 @@ const ROLE_VOICES: Record<string, Voice> = {
   "logic reviewer": {
     stance: "The reasoning mostly holds",
     lens: "the inferential chain and where it leaps",
-    closer: "A couple of links between premise and conclusion need to be made explicit.",
+    closer:
+      "A couple of links between premise and conclusion need to be made explicit.",
   },
   "clarity reviewer": {
     stance: "The intent comes through, but unevenly",
     lens: "structure, plain language and concrete examples",
-    closer: "Simplifying the dense passages would lift comprehension noticeably.",
+    closer:
+      "Simplifying the dense passages would lift comprehension noticeably.",
   },
   "evidence reviewer": {
     stance: "The support is partial",
     lens: "the strength and freshness of the evidence",
-    closer: "More data points and recent sources would make the case far stronger.",
+    closer:
+      "More data points and recent sources would make the case far stronger.",
   },
   teacher: {
     stance: "Let me build this up step by step",
     lens: "the underlying mechanics and how the pieces fit",
-    closer: "Think of it as building blocks that combine into something larger.",
+    closer:
+      "Think of it as building blocks that combine into something larger.",
   },
   beginner: {
     stance: "I'm still finding my footing here",
@@ -238,22 +248,26 @@ const ROLE_VOICES: Record<string, Voice> = {
   examiner: {
     stance: "Let me probe the understanding",
     lens: "the principles, applications and common misconceptions",
-    closer: "Answering these would show whether the grasp is real or surface-level.",
+    closer:
+      "Answering these would show whether the grasp is real or surface-level.",
   },
   "example generator": {
     stance: "Concrete cases make this land",
     lens: "small, mid-size and edge scenarios",
-    closer: "Walking through one example per scale shows the trade-offs clearly.",
+    closer:
+      "Walking through one example per scale shows the trade-offs clearly.",
   },
   "software architect": {
     stance: "Structurally this is sound",
     lens: "separation of concerns, data flow and failure isolation",
-    closer: "Tighter interface definitions and a versioning strategy would round it out.",
+    closer:
+      "Tighter interface definitions and a versioning strategy would round it out.",
   },
   "security reviewer": {
     stance: "Security needs a closer look",
     lens: "input validation, auth flows, encryption and audit logging",
-    closer: "Bringing security in earlier in the design is the highest-value change.",
+    closer:
+      "Bringing security in earlier in the design is the highest-value change.",
   },
   "performance reviewer": {
     stance: "Performance is workable",
@@ -270,7 +284,8 @@ const ROLE_VOICES: Record<string, Voice> = {
 const GENERIC_VOICE: Voice = {
   stance: "Here's my read",
   lens: "the core trade-offs",
-  closer: "On balance, the path forward depends on which constraints bind hardest.",
+  closer:
+    "On balance, the path forward depends on which constraints bind hardest.",
 };
 
 /** Match the agent persona (system prompt) to a known role voice. */
@@ -298,11 +313,7 @@ function composeSpecialist(
     `What I focus on is ${voice.lens}.`,
     `The lens I bring is ${voice.lens}.`,
   ];
-  return [
-    pick(rng, openers),
-    pick(rng, middles),
-    voice.closer,
-  ].join(" ");
+  return [pick(rng, openers), pick(rng, middles), voice.closer].join(" ");
 }
 
 function composeReportJudge(topic: string, rng: () => number): string {
@@ -337,6 +348,7 @@ ${confidence} — moderate-to-strong agreement, with a few evidence gaps keeping
 }
 
 function composeAnswerJudge(topic: string, rng: () => number): string {
+  const confidence = 3 + Math.floor(rng() * 3); // 3–5, seeded
   const leads = [
     `Here's a direct answer on "${topic}":`,
     `Short answer on "${topic}":`,
@@ -349,13 +361,13 @@ A few good options:
 2. If you're unsure, default to the reversible choice — it keeps your options open.
 3. Re-evaluate once you have real feedback rather than planning everything up front.
 
-If your situation has a hard constraint I haven't accounted for, lead with that and the answer shifts accordingly.`;
+If your situation has a hard constraint I haven't accounted for, lead with that and the answer shifts accordingly.
+
+## Confidence Score
+${confidence} — moderate-to-strong agreement, with a few evidence gaps keeping this short of full confidence.`;
 }
 
-function composePeerReview(
-  userMessage: string,
-  rng: () => number,
-): string {
+function composePeerReview(userMessage: string, rng: () => number): string {
   const labels = extractResponseLabels(userMessage);
   const assessments = [
     "clear and well-reasoned, with concrete support",
@@ -369,9 +381,7 @@ function composePeerReview(
     .join("\n");
 
   // Deterministic shuffle of the labels for the ranking.
-  const ranked = [...labels].sort(
-    () => rng() - 0.5,
-  );
+  const ranked = [...labels].sort(() => rng() - 0.5);
   const reasons = [
     "strongest balance of insight and evidence",
     "most actionable and clearly argued",
@@ -380,7 +390,9 @@ function composePeerReview(
     "thinner support than the others",
   ];
   const ranking = ranked
-    .map((l, i) => `${i + 1}. ${l} — ${reasons[Math.min(i, reasons.length - 1)]}`)
+    .map(
+      (l, i) => `${i + 1}. ${l} — ${reasons[Math.min(i, reasons.length - 1)]}`,
+    )
     .join("\n");
 
   return `## Evaluations
@@ -543,8 +555,7 @@ export class MockProvider implements LLMProvider {
 
     // Simulate network latency. Seeded (deterministic) by default, overridable
     // for tests; always abortable so cancellation works in demo/test mode.
-    const delayMs =
-      latencyOverrideMs ?? Math.round(30 + rng() * 190); // ~30–220ms
+    const delayMs = latencyOverrideMs ?? Math.round(30 + rng() * 190); // ~30–220ms
     await this.sleep(delayMs, input.signal);
 
     // A test-installed responder wins, unless it defers by returning undefined.

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Multi-Agent LLM Council API",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "description": "HTTP API for the Multi-Agent LLM Council. Authentication is cookie-based (NextAuth session). `/api/council` and `/api/discuss` stream NDJSON (one JSON object per line) rather than returning a single body. The `version` here tracks package.json; the live value is served by GET /api/version."
   },
   "servers": [{ "url": "/", "description": "Same-origin (Next.js app)" }],
@@ -39,6 +39,7 @@
           },
           "400": { "$ref": "#/components/responses/Error" },
           "404": { "$ref": "#/components/responses/Error" },
+          "429": { "$ref": "#/components/responses/Error" },
           "503": { "$ref": "#/components/responses/Error" },
           "504": { "$ref": "#/components/responses/Error" },
           "500": { "$ref": "#/components/responses/Error" }
@@ -98,7 +99,9 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/ConversationSummary" }
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationSummary"
+                  }
                 }
               }
             }
@@ -115,13 +118,45 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SaveConversationRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/SaveConversationRequest"
+              }
             }
           }
         },
         "responses": {
           "200": { "$ref": "#/components/responses/Ok" },
           "400": { "$ref": "#/components/responses/Error" },
+          "401": { "$ref": "#/components/responses/Error" },
+          "500": { "$ref": "#/components/responses/Error" }
+        }
+      }
+    },
+    "/api/conversations/stats": {
+      "get": {
+        "tags": ["Conversations"],
+        "summary": "Per-model aggregated stats across the user's saved council runs",
+        "description": "Powers the /dashboard model-comparison view. Returns per-model response counts, average confidence, and the modes each model was used in.",
+        "security": [{ "sessionCookie": [] }],
+        "responses": {
+          "200": {
+            "description": "Aggregated model stats and total conversation count.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stats": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ModelStat" }
+                    },
+                    "conversationCount": { "type": "integer" }
+                  },
+                  "required": ["stats", "conversationCount"]
+                }
+              }
+            }
+          },
           "401": { "$ref": "#/components/responses/Error" },
           "500": { "$ref": "#/components/responses/Error" }
         }
@@ -234,6 +269,38 @@
         }
       }
     },
+    "/api/metrics": {
+      "get": {
+        "tags": ["Meta"],
+        "summary": "Prometheus metrics scrape target",
+        "description": "Auth- and dependency-free. Returns Prometheus text format by default; pass `?format=json` for JSON (used by the in-app metrics viewer). Optionally gated behind a static bearer token (METRICS_TOKEN).",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "description": "\"json\" for JSON output; omitted for Prometheus text.",
+            "schema": { "type": "string", "enum": ["json"] }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prometheus text exposition (default) or JSON snapshot (?format=json).",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string" }
+              },
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "401": {
+            "description": "METRICS_TOKEN is set and the request lacks the matching Authorization header."
+          }
+        }
+      }
+    },
     "/api/models": {
       "get": {
         "tags": ["Meta"],
@@ -297,7 +364,9 @@
         "responses": {
           "200": {
             "description": "OpenAPI document.",
-            "content": { "application/json": { "schema": { "type": "object" } } }
+            "content": {
+              "application/json": { "schema": { "type": "object" } }
+            }
           }
         }
       }
@@ -569,22 +638,44 @@
     "schemas": {
       "CouncilModeId": {
         "type": "string",
-        "enum": ["decision", "idea", "criticalReview", "learning", "technical", "answer", "swot"]
+        "enum": [
+          "decision",
+          "idea",
+          "criticalReview",
+          "learning",
+          "technical",
+          "answer",
+          "swot"
+        ]
       },
       "Error": {
         "type": "object",
         "properties": {
-          "error": { "type": "string", "description": "User-friendly headline." },
+          "error": {
+            "type": "string",
+            "description": "User-friendly headline."
+          },
           "message": { "type": "string" },
           "type": {
             "type": "string",
-            "enum": ["validation", "unauthorized", "not_found", "timeout", "provider_unavailable", "server_error"]
+            "enum": [
+              "validation",
+              "unauthorized",
+              "not_found",
+              "timeout",
+              "provider_unavailable",
+              "rate_limited",
+              "server_error"
+            ]
           },
           "retryable": { "type": "boolean" },
           "details": {
             "type": "object",
             "description": "Per-field validation errors (validation type only).",
-            "additionalProperties": { "type": "array", "items": { "type": "string" } }
+            "additionalProperties": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
           }
         },
         "required": ["error"]
@@ -595,7 +686,11 @@
           "id": { "type": "string", "minLength": 1 },
           "name": { "type": "string", "minLength": 1, "maxLength": 100 },
           "role": { "type": "string", "minLength": 1, "maxLength": 200 },
-          "systemPrompt": { "type": "string", "minLength": 1, "maxLength": 20000 },
+          "systemPrompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
           "isFinalJudge": { "type": "boolean" },
           "disabled": { "type": "boolean" },
           "model": { "type": "string", "maxLength": 200 }
@@ -610,7 +705,9 @@
           "customAgents": {
             "type": "object",
             "description": "Keyed by agent id; overrides only the supplied fields.",
-            "additionalProperties": { "$ref": "#/components/schemas/CustomAgent" }
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CustomAgent"
+            }
           },
           "peerReview": {
             "type": "boolean",
@@ -641,7 +738,10 @@
           "agentName": { "type": "string" },
           "content": { "type": "string" },
           "confidence": { "type": "integer", "minimum": 1, "maximum": 5 },
-          "model": { "type": "string", "description": "Resolved model that produced the response." }
+          "model": {
+            "type": "string",
+            "description": "Resolved model that produced the response."
+          }
         },
         "required": ["agentId", "agentName", "content", "confidence"]
       },
@@ -656,7 +756,15 @@
           "recommendations": { "type": "array", "items": { "type": "string" } },
           "confidence": { "type": "integer", "minimum": 1, "maximum": 5 }
         },
-        "required": ["summary", "keyConclusions", "agreements", "disagreements", "risks", "recommendations", "confidence"]
+        "required": [
+          "summary",
+          "keyConclusions",
+          "agreements",
+          "disagreements",
+          "risks",
+          "recommendations",
+          "confidence"
+        ]
       },
       "RunCouncilResult": {
         "type": "object",
@@ -664,15 +772,31 @@
           "id": { "type": "string" },
           "modeId": { "$ref": "#/components/schemas/CouncilModeId" },
           "userInput": { "type": "string" },
-          "agentResponses": { "type": "array", "items": { "$ref": "#/components/schemas/AgentResponse" } },
-          "peerReviews": { "type": "array", "items": { "$ref": "#/components/schemas/AgentResponse" } },
+          "agentResponses": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AgentResponse" }
+          },
+          "peerReviews": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AgentResponse" }
+          },
           "judgeResponse": {
-            "oneOf": [{ "$ref": "#/components/schemas/AgentResponse" }, { "type": "null" }]
+            "oneOf": [
+              { "$ref": "#/components/schemas/AgentResponse" },
+              { "type": "null" }
+            ]
           },
           "finalReport": { "$ref": "#/components/schemas/FinalReport" },
           "createdAt": { "type": "string", "format": "date-time" }
         },
-        "required": ["id", "modeId", "userInput", "agentResponses", "finalReport", "createdAt"]
+        "required": [
+          "id",
+          "modeId",
+          "userInput",
+          "agentResponses",
+          "finalReport",
+          "createdAt"
+        ]
       },
       "StoredConversation": {
         "allOf": [
@@ -703,7 +827,12 @@
           { "$ref": "#/components/schemas/RunCouncilResult" },
           {
             "type": "object",
-            "properties": { "title": { "type": "string", "description": "Optional; defaults to the first 60 chars of input." } }
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "Optional; defaults to the first 60 chars of input."
+              }
+            }
           }
         ]
       },
@@ -720,15 +849,32 @@
       "DiscussionTurn": {
         "type": "object",
         "properties": {
-          "round": { "type": "integer", "description": "1-based round number." },
-          "index": { "type": "integer", "description": "0-based position across the discussion." },
+          "round": {
+            "type": "integer",
+            "description": "1-based round number."
+          },
+          "index": {
+            "type": "integer",
+            "description": "0-based position across the discussion."
+          },
           "agentId": { "type": "string" },
           "agentName": { "type": "string" },
           "content": { "type": "string" },
           "model": { "type": "string" },
-          "ok": { "type": "boolean", "description": "False when the turn failed and content is a placeholder." }
+          "ok": {
+            "type": "boolean",
+            "description": "False when the turn failed and content is a placeholder."
+          }
         },
-        "required": ["round", "index", "agentId", "agentName", "content", "model", "ok"]
+        "required": [
+          "round",
+          "index",
+          "agentId",
+          "agentName",
+          "content",
+          "model",
+          "ok"
+        ]
       },
       "DiscussionSummary": {
         "type": "object",
@@ -750,13 +896,26 @@
         "properties": {
           "id": { "type": "string" },
           "topic": { "type": "string" },
-          "participants": { "type": "array", "items": { "$ref": "#/components/schemas/CouncilAgentMeta" } },
+          "participants": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CouncilAgentMeta" }
+          },
           "rounds": { "type": "integer" },
-          "turns": { "type": "array", "items": { "$ref": "#/components/schemas/DiscussionTurn" } },
+          "turns": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/DiscussionTurn" }
+          },
           "summary": { "$ref": "#/components/schemas/DiscussionSummary" },
           "createdAt": { "type": "string", "format": "date-time" }
         },
-        "required": ["id", "topic", "participants", "rounds", "turns", "createdAt"]
+        "required": [
+          "id",
+          "topic",
+          "participants",
+          "rounds",
+          "turns",
+          "createdAt"
+        ]
       },
       "StoredDiscussion": {
         "type": "object",
@@ -765,13 +924,33 @@
           "userId": { "type": "string" },
           "createdAt": { "type": "string", "format": "date-time" },
           "topic": { "type": "string" },
-          "participants": { "type": "array", "items": { "$ref": "#/components/schemas/CouncilAgentMeta" } },
+          "participants": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CouncilAgentMeta" }
+          },
           "rounds": { "type": "integer" },
-          "turns": { "type": "array", "items": { "$ref": "#/components/schemas/DiscussionTurn" } },
-          "summary": { "oneOf": [{ "$ref": "#/components/schemas/DiscussionSummary" }, { "type": "null" }] },
+          "turns": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/DiscussionTurn" }
+          },
+          "summary": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/DiscussionSummary" },
+              { "type": "null" }
+            ]
+          },
           "phase": { "$ref": "#/components/schemas/DiscussionPhase" }
         },
-        "required": ["id", "userId", "createdAt", "topic", "participants", "rounds", "turns", "phase"]
+        "required": [
+          "id",
+          "userId",
+          "createdAt",
+          "topic",
+          "participants",
+          "rounds",
+          "turns",
+          "phase"
+        ]
       },
       "DiscussionListItem": {
         "type": "object",
@@ -790,22 +969,69 @@
           "id": { "type": "string" },
           "topic": { "type": "string" },
           "createdAt": { "type": "string", "format": "date-time" },
-          "participants": { "type": "array", "items": { "$ref": "#/components/schemas/CouncilAgentMeta" } },
+          "participants": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/CouncilAgentMeta" }
+          },
           "rounds": { "type": "integer" },
-          "turns": { "type": "array", "items": { "$ref": "#/components/schemas/DiscussionTurn" } },
-          "summary": { "oneOf": [{ "$ref": "#/components/schemas/DiscussionSummary" }, { "type": "null" }] },
+          "turns": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/DiscussionTurn" }
+          },
+          "summary": {
+            "oneOf": [
+              { "$ref": "#/components/schemas/DiscussionSummary" },
+              { "type": "null" }
+            ]
+          },
           "phase": { "$ref": "#/components/schemas/DiscussionPhase" }
         },
         "required": ["id", "topic"]
       },
       "Model": {
         "type": "object",
+        "description": "A free OpenRouter model.",
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" }
+          "id": {
+            "type": "string",
+            "description": "OpenRouter model id (e.g. \"google/gemini-2.0-flash-001\")."
+          },
+          "name": {
+            "type": "string",
+            "description": "Short name (id's last path segment)."
+          },
+          "description": { "type": "string" },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "prompt": { "type": "string" },
+              "completion": { "type": "string" }
+            },
+            "required": ["prompt", "completion"]
+          },
+          "contextLength": { "type": "integer" },
+          "free": { "type": "boolean" }
         },
         "required": ["id", "name"],
         "additionalProperties": true
+      },
+      "ModelStat": {
+        "type": "object",
+        "description": "One row of the per-model comparison dashboard.",
+        "properties": {
+          "model": { "type": "string" },
+          "responseCount": { "type": "integer" },
+          "avgConfidence": {
+            "type": "number",
+            "description": "Mean self-reported confidence (1–5), rounded to 1 decimal."
+          },
+          "modes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Distinct council mode ids this model was used in."
+          }
+        },
+        "required": ["model", "responseCount", "avgConfidence", "modes"]
       },
       "RegisterRequest": {
         "type": "object",
@@ -849,7 +1075,9 @@
             "type": "object",
             "additionalProperties": {
               "type": "object",
-              "properties": { "apiKey": { "type": "string", "minLength": 1, "maxLength": 500 } },
+              "properties": {
+                "apiKey": { "type": "string", "minLength": 1, "maxLength": 500 }
+              },
               "required": ["apiKey"]
             }
           },
@@ -871,12 +1099,125 @@
           }
         }
       },
+      "CouncilProgressEvent": {
+        "type": "object",
+        "description": "Progress event emitted by /api/council via the NDJSON stream.",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "run_started" },
+              "specialists": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/CouncilAgentMeta" }
+              },
+              "judge": {
+                "oneOf": [
+                  { "$ref": "#/components/schemas/CouncilAgentMeta" },
+                  { "type": "null" }
+                ]
+              }
+            },
+            "required": ["type", "specialists", "judge"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "phase_started" },
+              "phase": {
+                "type": "string",
+                "enum": ["specialists", "peer-review", "judge"]
+              }
+            },
+            "required": ["type", "phase"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "agent_started" },
+              "agentId": { "type": "string" }
+            },
+            "required": ["type", "agentId"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "agent_completed" },
+              "agentId": { "type": "string" },
+              "durationMs": { "type": "number" },
+              "ok": { "type": "boolean" }
+            },
+            "required": ["type", "agentId", "durationMs", "ok"]
+          }
+        ]
+      },
+      "DiscussionProgressEvent": {
+        "type": "object",
+        "description": "Progress event emitted by /api/discuss via the NDJSON stream.",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "discussion_started" },
+              "participants": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/CouncilAgentMeta" }
+              },
+              "rounds": { "type": "integer" }
+            },
+            "required": ["type", "participants", "rounds"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "round_started" },
+              "round": { "type": "integer" }
+            },
+            "required": ["type", "round"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "turn_started" },
+              "round": { "type": "integer" },
+              "agentId": { "type": "string" }
+            },
+            "required": ["type", "round", "agentId"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "turn_completed" },
+              "turn": { "$ref": "#/components/schemas/DiscussionTurn" },
+              "durationMs": { "type": "number" }
+            },
+            "required": ["type", "turn", "durationMs"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "summary_started" },
+              "agentId": { "type": "string" }
+            },
+            "required": ["type", "agentId"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "summary_completed" },
+              "summary": { "$ref": "#/components/schemas/DiscussionSummary" },
+              "durationMs": { "type": "number" }
+            },
+            "required": ["type", "summary", "durationMs"]
+          }
+        ]
+      },
       "CouncilStreamLine": {
         "type": "object",
         "description": "One NDJSON line from /api/council.",
         "properties": {
           "kind": { "type": "string", "enum": ["progress", "result", "error"] },
-          "event": { "type": "object", "description": "Progress event (run_started, phase_started, agent_started, agent_completed)." },
+          "event": { "$ref": "#/components/schemas/CouncilProgressEvent" },
           "result": { "$ref": "#/components/schemas/RunCouncilResult" },
           "error": { "$ref": "#/components/schemas/Error" }
         },
@@ -887,7 +1228,7 @@
         "description": "One NDJSON line from /api/discuss.",
         "properties": {
           "kind": { "type": "string", "enum": ["progress", "result", "error"] },
-          "event": { "type": "object", "description": "Progress event (discussion_started, round_started, turn_started, turn_completed, summary_started, summary_completed)." },
+          "event": { "$ref": "#/components/schemas/DiscussionProgressEvent" },
           "result": { "$ref": "#/components/schemas/RunDiscussionResult" },
           "error": { "$ref": "#/components/schemas/Error" }
         },

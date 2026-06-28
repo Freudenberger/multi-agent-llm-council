@@ -12,5 +12,7 @@ describe("src/app/metrics/page.tsx", () => {
     );
 
     expect(violations).toHaveLength(0);
-  }, 30000);
+    // ESLint cold-start (full config + plugins) can exceed 30s under full-suite
+    // load on Windows, even though the lint itself is fast once warm.
+  }, 60000);
 });
