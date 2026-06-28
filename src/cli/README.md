@@ -52,9 +52,12 @@ error.
 | `answer`         | Answer a question by combining multiple perspectives.      |
 | `swot`           | Strengths / weaknesses / opportunities / threats analysis. |
 
-Run `council --list-modes` for the live list with each mode's agents — that
-output is generated from the [mode registry](../modes/index.ts), so it never
-drifts.
+The live mode list is generated from the [mode registry](../modes/index.ts),
+so it never drifts. From this repo, run:
+
+```bash
+npm run council -- --list-modes
+```
 
 ## Examples
 
@@ -91,7 +94,7 @@ environment variables always win over `.env` files, and `.env.local` wins over
 ## Tests
 
 CLI behavior is covered in [tests/cli/cli.test.ts](../../tests/cli/cli.test.ts)
-(argument parsing and report formatting against a real mock-provider run):
+(argument parsing, env loading, and report formatting against a real mock-provider run):
 
 ```bash
 npx vitest run tests/cli

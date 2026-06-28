@@ -53,24 +53,29 @@ flowchart TD
 
 ## Council Modes
 
-| Mode                  | Best For                             |
-| --------------------- | ------------------------------------ |
-| **Decision Council**  | Weighing options, making choices     |
-| **Idea Council**      | Evaluating ideas and concepts        |
-| **Critical Review**   | Reviewing text, arguments, proposals |
-| **Learning Council**  | Understanding new concepts           |
-| **Technical Council** | Architecture and code decisions      |
-| **Answer Council**    | Direct well-reasoned answers         |
+| Mode                  | Best For                                                      |
+| --------------------- | ------------------------------------------------------------- |
+| **Decision Council**  | Weighing options, making choices                              |
+| **Idea Council**      | Evaluating ideas and concepts                                 |
+| **Critical Review**   | Reviewing text, arguments, proposals                          |
+| **Learning Council**  | Understanding new concepts                                    |
+| **Technical Council** | Architecture and code decisions                               |
+| **Answer Council**    | Direct well-reasoned answers                                  |
+| **SWOT Council**      | Strategic strengths/weaknesses/opportunities/threats analysis |
 
 ## Key Features
 
-- **6 council modes** with purpose-built agent configurations
+- **7 council modes** with purpose-built agent configurations, including a dedicated SWOT workflow
 - **Optional peer review** — a one-click analysis that adds an anonymized peer-review/ranking phase before the judge, available for any mode
 - **Customizable agents** — edit names, roles, prompts, or swap in agents from other modes
+- **Per-agent and preferred model selection** — pick models per agent or constrain runs to a user-level allow-list
+- **Live progress + cancellation** — watch specialist/judge progress stream in real time and stop a run mid-flight
 - **Enable/disable agents** — run with fewer agents for faster results
 - **Transparent process** — inspect every specialist's raw response and the judge's synthesis
 - **Structured reports** — summary, conclusions, agreements, disagreements, risks, recommendations
-- **CLI support** — run councils from the terminal with the same core engine
+- **Saved history + export** — logged-in users can save, reload, delete, copy, print to PDF, and export sessions
+- **Roundtable discussions** — a separate live multi-agent discussion flow at `/discuss` for sequential debate
+- **CLI support** — run councils from the terminal with the same core engine, plus JSON, file-input, peer-review, and mode-listing options
 - **Graceful degradation** — continues working even if some agents fail
 
 ## Reviewer Quick Start
@@ -97,7 +102,10 @@ To run the test suites:
 
 ```bash
 npm test                                  # Vitest (unit + integration)
-cd tests/e2e && npm install && npx playwright test   # Playwright E2E (one-time install)
+npm run typecheck                         # TypeScript
+npm run lint                              # ESLint
+npm --prefix tests/e2e install            # one-time Playwright install
+npm run test:e2e                          # Playwright E2E
 ```
 
 ## Quick Start (with real LLM)
@@ -133,6 +141,8 @@ Open [http://localhost:3000](http://localhost:3000).
 npm run council -- --mode decision "Should I learn Rust or Go?"
 ```
 
+For the full CLI surface area (`--peer-review`, `--input-file`, `--json`, `--list-modes`), see [src/cli/README.md](src/cli/README.md).
+
 ### Run Tests
 
 ```bash
@@ -167,18 +177,18 @@ Required repo secrets (Settings → Secrets and variables → Actions): `DOCKERH
 
 `package.json` is the single source of truth for the image version. Each build is tagged three ways:
 
-| Tag                       | Meaning                                  |
-| ------------------------- | ---------------------------------------- |
-| `latest`                  | newest build of the default branch       |
-| `<version>` (e.g. `0.1.0`)| the `package.json` version               |
-| `sha-<short>`             | the exact commit (always immutable)      |
+| Tag                        | Meaning                             |
+| -------------------------- | ----------------------------------- |
+| `latest`                   | newest build of the default branch  |
+| `<version>` (e.g. `0.1.0`) | the `package.json` version          |
+| `sha-<short>`              | the exact commit (always immutable) |
 
 Releases are driven by **Conventional Commits** via [`commit-and-tag-version`](https://github.com/absolute-version/commit-and-tag-version). The bump level is derived from commit history — no manual choosing:
 
-| Commit type             | Bump  |
-| ----------------------- | ----- |
-| `fix: …`                | patch |
-| `feat: …`               | minor |
+| Commit type                   | Bump  |
+| ----------------------------- | ----- |
+| `fix: …`                      | patch |
+| `feat: …`                     | minor |
 | `feat!:` / `BREAKING CHANGE:` | major |
 
 > **One-time:** `feat → minor` only applies once the project is `≥ 1.0.0`. Below that, the preset treats every `feat` as a patch. Bootstrap to a stable major once, then it's fully automatic:
@@ -200,23 +210,24 @@ git push --follow-tags
 
 ## Architecture
 
-The project is a **modular monolith** — a single deployable Next.js application with clear internal boundaries. Both the web UI and the CLI drive the same Council Core; the core depends only on the provider interface, never on the UI:
+The project is a **modular monolith** — a single deployable Next.js application with clear internal boundaries. The main council UI, the live roundtable UI, and the CLI all drive shared core modules; those cores depend on provider/storage/auth seams, never on React components:
 
 ```mermaid
 flowchart TD
-    UI["Web UI · Next.js / React"] -->|"NDJSON stream"| API["API routes<br/>src/app/api"]
-    CLI["CLI · npm run council"] --> CORE
-    API --> CORE["Council Core<br/>runCouncil · runDiscussion"]
-    CORE --> MODES["Modes"]
-    CORE --> AGENTS["Agents"]
-    CORE --> PROMPTS["Prompts"]
-    CORE --> PROV["LLM Provider interface"]
+  UI["Web UI<br/>main app · settings · auth"] -->|"NDJSON / JSON"| API["API routes<br/>council · discuss · history · models · auth"]
+  DISCUSS["Roundtable UI<br/>/discuss"] -->|"NDJSON stream"| API
+  CLI["CLI<br/>npm run council"] --> CORE
+  API --> CORE["Core orchestrators<br/>runCouncil · runDiscussion"]
+  CORE --> MODES["Modes"]
+  CORE --> AGENTS["Agents"]
+  CORE --> PROMPTS["Prompts"]
+  CORE --> PROV["LLM provider interface"]
     PROV --> MOCK["Mock provider"]
     PROV --> OR["OpenRouter"]
-    API --> STORE["Storage provider"]
+  API --> STORE["Storage provider"]
     STORE --> LOCAL["Local JSON files"]
     STORE --> SUPA["Supabase"]
-    API --> AUTH["NextAuth"]
+  API --> AUTH["NextAuth + user settings"]
     classDef core fill:#dbeafe,stroke:#2563eb,color:#1e3a8a;
     class CORE core;
 ```
@@ -225,17 +236,20 @@ The internal module layout:
 
 ```
 src/
-├── agents/          # Agent templates and definitions
-├── app/             # Next.js web UI (pages, API routes, components)
+├── agents/          # Agent templates and persona registries
+├── app/             # Next.js UI, routes, providers, pages, API handlers
+├── auth/            # Auth.js config, user storage, BYOK/provider overrides
 ├── cli/             # Command-line interface
-├── core/            # Shared council engine (mode-agnostic)
-│   ├── runCouncil.ts   # Orchestrator: phase 1 (specialists) → phase 2 (judge)
-│   ├── types.ts        # Core type definitions
+├── core/            # Shared orchestration engines
+│   ├── runCouncil.ts   # Specialists → optional peer review → judge
+│   ├── runDiscussion.ts # Live roundtable discussion orchestrator
+│   ├── types.ts        # Shared run/result/progress types
 │   ├── errors.ts       # Error taxonomy
 │   └── logger.ts       # Structured logging
-├── modes/           # Council mode configurations
-├── prompts/         # Prompt builders for each stage
-└── providers/       # LLM provider abstraction (OpenRouter)
+├── modes/           # Council mode registry
+├── prompts/         # Prompt builders for council + discussion flows
+├── providers/       # LLM provider abstraction + implementations
+└── storage/         # Conversation/discussion persistence backends
 ```
 
 The **core module** (`src/core/`) contains all deliberation logic and is fully independent from the UI. Both the web app and CLI consume it through the same `runCouncil()` function.
@@ -246,6 +260,8 @@ The **core module** (`src/core/`) contains all deliberation logic and is fully i
 - **UI:** React 19, Tailwind CSS 4
 - **Language:** TypeScript 5 (strict)
 - **Validation:** Zod 4
+- **Auth:** NextAuth 5 (Auth.js)
+- **Persistence:** Local JSON or Supabase via provider abstractions
 - **Testing:** Vitest
 - **LLM Provider:** OpenRouter (access to 100+ models)
 
@@ -258,13 +274,18 @@ llm-council/
 ├── src/
 │   ├── agents/          # Agent template definitions
 │   ├── app/
-│   │   ├── api/council/ # POST /api/council — main API route
-│   │   ├── components/  # React components (Markdown, AgentCustomizer)
-│   │   └── page.tsx     # Main page
+│   │   ├── api/         # Council, discuss, auth, models, health, version
+│   │   ├── components/  # React components (Markdown, AgentCustomizer, Footer)
+│   │   ├── discuss/     # Live roundtable discussion page
+│   │   ├── settings/    # User settings (preferred models, keys)
+│   │   └── page.tsx     # Main council page
+│   ├── auth/            # Auth/session and per-user provider configuration
 │   ├── cli/             # CLI entry point
-│   ├── core/            # Council engine (types, orchestrator, errors)
-│   ├── modes/           # Mode definitions (decision, idea, etc.)
-│   ├── prompts/         # Specialist + judge prompt builders
-│   └── providers/       # OpenRouter provider + mock for tests
-└── tests/               # Vitest test suite
+│   ├── core/            # Council + discussion engines, types, errors
+│   ├── modes/           # Mode definitions (decision, idea, swot, etc.)
+│   ├── prompts/         # Specialist, judge, and discussion prompt builders
+│   ├── providers/       # OpenRouter provider + mock for tests
+│   └── storage/         # Local JSON and Supabase persistence backends
+├── tests/               # Vitest test suite
+└── tests/e2e/           # Playwright end-to-end tests
 ```
