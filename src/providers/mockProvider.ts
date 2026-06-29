@@ -1,6 +1,7 @@
 import type { LLMProvider, GenerateInput, GenerateOutput } from "./types";
 import { logger } from "../core/logger";
 import { CouncilAbortedError } from "../core/errors";
+import { estimateTokenUsage } from "./tokenUsage";
 
 /**
  * Mock Provider — simulates an LLM without calling any external API.
@@ -566,12 +567,19 @@ export class MockProvider implements LLMProvider {
           typeof custom === "string"
             ? { content: custom, model: "mock-provider" }
             : custom;
+        const usage =
+          out.usage ??
+          estimateTokenUsage({
+            systemPrompt: input.systemPrompt,
+            userMessage: input.userMessage,
+            content: out.content,
+          });
         logger.debug("MockProvider.generate completed (scripted)", {
           model: out.model,
           durationMs: Math.round(performance.now() - start),
           responseLength: out.content.length,
         });
-        return out;
+        return { ...out, usage };
       }
     }
 
@@ -586,7 +594,15 @@ export class MockProvider implements LLMProvider {
       responseLength: content.length,
     });
 
-    return { content, model: "mock-provider" };
+    return {
+      content,
+      model: "mock-provider",
+      usage: estimateTokenUsage({
+        systemPrompt: input.systemPrompt,
+        userMessage: input.userMessage,
+        content,
+      }),
+    };
   }
 
   /** Abortable delay — rejects with CouncilAbortedError if the signal fires. */

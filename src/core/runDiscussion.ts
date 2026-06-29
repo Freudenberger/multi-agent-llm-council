@@ -50,7 +50,8 @@ const MIN_MEANINGFUL_TURN_LENGTH = 25;
  * (e.g. a moderation/classification header like "User Safety: safe"). Such a
  * reply contributes nothing to the discussion, so it triggers a retry.
  */
-const DEGENERATE_LABEL = /^\s*(user\s*safety|content\s*safety|safety|moderation|classification|policy)\s*:/i;
+const DEGENERATE_LABEL =
+  /^\s*(user\s*safety|content\s*safety|safety|moderation|classification|policy)\s*:/i;
 
 /**
  * Returns true when a model reply is not a usable discussion turn: empty,
@@ -86,7 +87,10 @@ function validate(input: RunDiscussionInput): void {
   if (!input.topic?.trim()) throw new ValidationError("Topic cannot be empty");
 
   const ids = input.agentIds ?? [];
-  if (ids.length < DISCUSSION_MIN_AGENTS || ids.length > DISCUSSION_MAX_AGENTS) {
+  if (
+    ids.length < DISCUSSION_MIN_AGENTS ||
+    ids.length > DISCUSSION_MAX_AGENTS
+  ) {
     throw new ValidationError(
       `Select between ${DISCUSSION_MIN_AGENTS} and ${DISCUSSION_MAX_AGENTS} agents`,
     );
@@ -219,6 +223,7 @@ async function runTurn(
           : result.content,
         model: result.model,
         ok: !degenerate,
+        usage: result.usage,
       },
       durationMs,
     };
@@ -351,6 +356,7 @@ async function runSummary(
           : result.content,
         model: result.model,
         ok: !degenerate,
+        usage: result.usage,
       },
       durationMs,
     };
@@ -412,7 +418,10 @@ export async function runDiscussion(
 
   const topic = input.topic.trim();
   const totalRounds = input.rounds;
-  const participants = resolveParticipants(input.agentIds, input.fallbackModels);
+  const participants = resolveParticipants(
+    input.agentIds,
+    input.fallbackModels,
+  );
   const participantNames = participants.map((p) => p.name);
 
   // Resolve the optional summarizer up front so an unknown id fails fast,

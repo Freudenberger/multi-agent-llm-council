@@ -8,7 +8,11 @@ describe("runDiscussion", () => {
 
   it("throws ValidationError for empty topic", async () => {
     await expect(
-      runDiscussion({ topic: "   ", agentIds: ["optimist", "sceptic"], rounds: 1 }),
+      runDiscussion({
+        topic: "   ",
+        agentIds: ["optimist", "sceptic"],
+        rounds: 1,
+      }),
     ).rejects.toThrow(ValidationError);
   });
 
@@ -50,10 +54,18 @@ describe("runDiscussion", () => {
 
   it("throws ValidationError for rounds out of range", async () => {
     await expect(
-      runDiscussion({ topic: "Hi", agentIds: ["optimist", "sceptic"], rounds: 0 }),
+      runDiscussion({
+        topic: "Hi",
+        agentIds: ["optimist", "sceptic"],
+        rounds: 0,
+      }),
     ).rejects.toThrow(ValidationError);
     await expect(
-      runDiscussion({ topic: "Hi", agentIds: ["optimist", "sceptic"], rounds: 99 }),
+      runDiscussion({
+        topic: "Hi",
+        agentIds: ["optimist", "sceptic"],
+        rounds: 99,
+      }),
     ).rejects.toThrow(ValidationError);
   });
 
@@ -112,6 +124,27 @@ describe("runDiscussion", () => {
     expect(result.turns).toHaveLength(2);
   });
 
+  it("returns token usage for turns and the optional summary", async () => {
+    const result = await runDiscussion({
+      topic: "Should we display token counts under each roundtable turn?",
+      agentIds: ["optimist", "sceptic"],
+      rounds: 1,
+      summarizerId: "final-judge",
+    });
+
+    for (const turn of result.turns) {
+      expect(turn.usage).toBeDefined();
+      expect(turn.usage?.inputTokens).toBeGreaterThan(0);
+      expect(turn.usage?.outputTokens).toBeGreaterThan(0);
+      expect(turn.usage?.totalTokens).toBe(
+        (turn.usage?.inputTokens ?? 0) + (turn.usage?.outputTokens ?? 0),
+      );
+    }
+
+    expect(result.summary?.usage).toBeDefined();
+    expect(result.summary?.usage?.totalTokens).toBeGreaterThan(0);
+  });
+
   it("emits summary progress events when a summarizer is selected", async () => {
     const events: DiscussionProgressEvent[] = [];
     await runDiscussion({
@@ -122,7 +155,9 @@ describe("runDiscussion", () => {
       onProgress: (e) => events.push(e),
     });
     expect(events.filter((e) => e.type === "summary_started")).toHaveLength(1);
-    expect(events.filter((e) => e.type === "summary_completed")).toHaveLength(1);
+    expect(events.filter((e) => e.type === "summary_completed")).toHaveLength(
+      1,
+    );
     // The summary runs after the last turn.
     const lastTurn = events.map((e) => e.type).lastIndexOf("turn_completed");
     const summaryStart = events.map((e) => e.type).indexOf("summary_started");

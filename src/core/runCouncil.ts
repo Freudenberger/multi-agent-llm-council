@@ -217,7 +217,9 @@ function parseJudgeReport(content: string): FinalReport {
 
   return {
     summary: wasTruncated
-      ? summary || content.substring(0, 500) + "\n\n_(Response was truncated — the analysis may be incomplete.)_"
+      ? summary ||
+        content.substring(0, 500) +
+          "\n\n_(Response was truncated — the analysis may be incomplete.)_"
       : summary || content.substring(0, 500),
     keyConclusions,
     agreements,
@@ -317,6 +319,7 @@ async function runAgent(
       content: result.content,
       confidence: 4,
       model: result.model,
+      usage: result.usage,
     };
   } catch (error) {
     const agentMs = Math.round(performance.now() - agentStart);

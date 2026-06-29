@@ -16,6 +16,7 @@ import { UserMenu } from "./components/UserMenu";
 import { HistorySidebar } from "./components/HistorySidebar";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { Footer } from "./components/Footer";
+import { TokenUsageNote } from "./components/TokenUsageNote";
 import { getModeAgents, getAllAgentTemplates } from "./agentData";
 
 const MODES: {
@@ -532,7 +533,7 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-                <FinalReportCard report={result.finalReport} />
+                <FinalReportCard report={result.finalReport} usage={result.judgeResponse?.usage} />
               </section>
             </div>
           )}
@@ -838,13 +839,20 @@ function AgentResponseCard({ response }: { response: AgentResponse }) {
       {expanded && (
         <div id={panelId} className="px-4 py-3 bg-zinc-50 dark:bg-zinc-950/50 text-sm text-zinc-700 dark:text-zinc-300">
           <Markdown content={response.content} />
+          <TokenUsageNote usage={response.usage} className="mt-3" />
         </div>
       )}
     </div>
   );
 }
 
-function FinalReportCard({ report }: { report: FinalReport }) {
+function FinalReportCard({
+  report,
+  usage,
+}: {
+  report: FinalReport;
+  usage?: AgentResponse["usage"];
+}) {
   return (
     <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden">
       <div className="p-6 bg-white dark:bg-zinc-900 space-y-6">
@@ -960,6 +968,7 @@ function FinalReportCard({ report }: { report: FinalReport }) {
             </div>
             <span className="text-sm text-zinc-500 dark:text-zinc-400">({report.confidence}/5)</span>
           </div>
+          <TokenUsageNote usage={usage} className="mt-3" />
         </div>
       </div>
     </div>

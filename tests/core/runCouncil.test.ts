@@ -146,6 +146,26 @@ describe("runCouncil", () => {
     expect(result.judgeResponse!.content.length).toBeGreaterThan(0);
   }, 30000);
 
+  it("returns token usage for specialist and judge responses", async () => {
+    const result = await runCouncil({
+      input: "Should we add response token counters to the UI?",
+      mode: "decision",
+    });
+
+    for (const response of result.agentResponses) {
+      expect(response.usage).toBeDefined();
+      expect(response.usage?.inputTokens).toBeGreaterThan(0);
+      expect(response.usage?.outputTokens).toBeGreaterThan(0);
+      expect(response.usage?.totalTokens).toBe(
+        (response.usage?.inputTokens ?? 0) +
+          (response.usage?.outputTokens ?? 0),
+      );
+    }
+
+    expect(result.judgeResponse?.usage).toBeDefined();
+    expect(result.judgeResponse?.usage?.totalTokens).toBeGreaterThan(0);
+  }, 30000);
+
   // ─── Custom agents ───────────────────────────────────────────────
 
   it("should accept custom agent overrides", async () => {
@@ -216,7 +236,11 @@ describe("runCouncil", () => {
       const list = ["model-a", "model-b"];
       let i = 0;
       // round-robin picker to make selection deterministic
-      const result = applyFallbackModels(base, list, () => list[i++ % list.length]);
+      const result = applyFallbackModels(
+        base,
+        list,
+        () => list[i++ % list.length],
+      );
       expect(result.agents[0].model).toBe("model-a");
       expect(result.agents[1].model).toBe("model-b");
     });
@@ -266,11 +290,15 @@ describe("runCouncil", () => {
 
       // run_started lists the planned roster
       const start = events.find((e) => e.type === "run_started");
-      expect(start && start.type === "run_started" && start.specialists.length).toBeGreaterThan(0);
+      expect(
+        start && start.type === "run_started" && start.specialists.length,
+      ).toBeGreaterThan(0);
 
       // every started agent eventually completes
       const started = events.filter((e) => e.type === "agent_started").length;
-      const completed = events.filter((e) => e.type === "agent_completed").length;
+      const completed = events.filter(
+        (e) => e.type === "agent_completed",
+      ).length;
       expect(completed).toBe(started);
 
       // both phases are announced

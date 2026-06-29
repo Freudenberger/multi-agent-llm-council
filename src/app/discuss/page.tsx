@@ -8,6 +8,7 @@ import { Markdown } from "../components/Markdown";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { UserMenu } from "../components/UserMenu";
 import { Footer } from "../components/Footer";
+import { TokenUsageNote } from "../components/TokenUsageNote";
 import {
   getDiscussionPersonas,
   getSummarizerPersonas,
@@ -865,6 +866,7 @@ export default function DiscussPage() {
                     ) : (
                       <em className="text-neutral-400">{turn.content}</em>
                     )}
+                    <TokenUsageNote usage={turn.usage} className="mt-3" />
                   </div>
                 )}
               </div>
@@ -917,6 +919,7 @@ export default function DiscussPage() {
               ) : (
                 <em className="text-neutral-400">{summary.content}</em>
               )}
+              <TokenUsageNote usage={summary.usage} className="mt-3" />
             </div>
           )}
         </section>

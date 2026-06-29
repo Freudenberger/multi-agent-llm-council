@@ -1,6 +1,6 @@
 /** Core types for the Multi-Agent LLM Council */
 
-import type { ProviderOverride } from "../providers/types";
+import type { ProviderOverride, TokenUsage } from "../providers/types";
 
 export type CouncilModeId =
   | "decision"
@@ -56,6 +56,8 @@ export type AgentResponse = {
    * recorded.
    */
   model?: string;
+  /** Provider-reported token usage for this response when available. */
+  usage?: TokenUsage;
 };
 
 export type FinalReport = {
@@ -158,7 +160,12 @@ export type CouncilProgressEvent =
     }
   | { type: "phase_started"; phase: "specialists" | "peer-review" | "judge" }
   | { type: "agent_started"; agentId: string }
-  | { type: "agent_completed"; agentId: string; durationMs: number; ok: boolean };
+  | {
+      type: "agent_completed";
+      agentId: string;
+      durationMs: number;
+      ok: boolean;
+    };
 
 export type RunCouncilResult = {
   id: string;
@@ -201,6 +208,8 @@ export type DiscussionSummary = {
   model: string;
   /** False when the summarizer failed and `content` is a placeholder. */
   ok: boolean;
+  /** Provider-reported token usage for this summary when available. */
+  usage?: TokenUsage;
 };
 
 /** One agent's contribution at a point in the discussion. */
@@ -216,6 +225,8 @@ export type DiscussionTurn = {
   model: string;
   /** False when the agent's turn failed and `content` is a placeholder. */
   ok: boolean;
+  /** Provider-reported token usage for this turn when available. */
+  usage?: TokenUsage;
 };
 
 export type RunDiscussionInput = {
@@ -263,7 +274,11 @@ export type DiscussionProgressEvent =
   | { type: "turn_started"; round: number; agentId: string }
   | { type: "turn_completed"; turn: DiscussionTurn; durationMs: number }
   | { type: "summary_started"; agentId: string }
-  | { type: "summary_completed"; summary: DiscussionSummary; durationMs: number };
+  | {
+      type: "summary_completed";
+      summary: DiscussionSummary;
+      durationMs: number;
+    };
 
 export type RunDiscussionResult = {
   id: string;

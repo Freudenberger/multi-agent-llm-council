@@ -9,9 +9,17 @@ export type GenerateInput = {
   signal?: AbortSignal;
 };
 
+export type TokenUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  costUsd?: number;
+};
+
 export type GenerateOutput = {
   content: string;
   model: string;
+  usage?: TokenUsage;
 };
 
 export type LLMProvider = {

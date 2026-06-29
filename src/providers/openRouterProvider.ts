@@ -13,6 +13,7 @@ import {
   ProviderTimeoutError,
   CouncilAbortedError,
 } from "../core/errors";
+import { extractTokenUsage } from "./tokenUsage";
 
 /**
  * OpenRouter Provider — uses OpenRouter API for LLM calls.
@@ -223,6 +224,7 @@ export class OpenRouterProvider implements LLMProvider {
 
         const data = await response.json();
         const content = data.choices?.[0]?.message?.content || "";
+        const usage = extractTokenUsage(data);
         const durationMs = Math.round(performance.now() - start);
 
         if (attempt > 0) {
@@ -243,6 +245,7 @@ export class OpenRouterProvider implements LLMProvider {
         return {
           content,
           model: this.model,
+          usage,
         };
       } catch (error: unknown) {
         // Cancellation — propagate immediately, never retry.
