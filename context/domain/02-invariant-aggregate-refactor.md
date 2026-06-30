@@ -3,7 +3,7 @@
 **Artifact:** L5 (10xArchitect path), doc 2 of 3 · **Date:** 2026-06-15
 **Prior:** [01-domain-distillation.md](./01-domain-distillation.md). Diagnostic design — no code changes.
 
-> This doc models the **core** domain object, `CouncilRun`. Its rules are *already enforced correctly* today, but procedurally — scattered across the 748-line orchestrator. Modelling it as an aggregate is about **clarity and a single enforcer**, not fixing a live bug (the live bug is the ownership invariant, handled in L4).
+> This doc models the **core** domain object, `CouncilRun`. Its rules are *already enforced correctly* today, but procedurally — scattered across the 748-line orchestrator. Modelling it as an aggregate is about **clarity and a single enforcer**, not fixing a live bug (the live bug is the ownership invariant, handled in L4 — **✅ now shipped**, see [../changes/refactor-opportunities/plan.md](../changes/refactor-opportunities/plan.md)).
 
 > **⚠️ Update — 2026-06-30 (post-analysis):** Dated **2026-06-15** snapshot. **INV-5** ("specialists peer-review anonymously") is marked below as *declared only, not in code* — that has since changed: peer review is now an **optional Phase 1.5** (`runPeerReview` [runCouncil.ts:418](../../src/core/runCouncil.ts#L418), tested in [runCouncil.test.ts](../../tests/core/runCouncil.test.ts)). The note at the end ("this aggregate does not introduce peer review") describes the 06-15 design.
 

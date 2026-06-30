@@ -18,7 +18,7 @@ Every problem from L3, classified: **CANDIDATE** = needs a structural code chang
 | ID | Problem (from L3) | Class | Why |
 | -- | ----------------- | ----- | --- |
 | D1 | Advertised "Stage 2 peer review" doesn't exist | **ROUTE → product decision** | Not a refactor: either build a feature or fix docs. Belongs in `/10x-roadmap`, not here. |
-| D2 | Authorization by convention (`get(id)` has no `userId`) | **CANDIDATE** | Structural: the ownership invariant must move into the contract. |
+| D2 | Authorization by convention (`get(id)` has no `userId`) | **CANDIDATE** _(✅ shipped 06-30)_ | Structural: the ownership invariant must move into the contract. **Done** — `getOwned(id, userId)` now in the contract; see [plan.md](./plan.md). |
 | D3 | Judge report is a prose↔regex handshake | **CANDIDATE** | Structural: introduce a parsing/contract seam. |
 | D4 | Dead `case "critical-review"` | NON-CANDIDATE | One-line fix + test. Guard, not refactor. |
 | D5 | `swot` mode half-wired (no description/judge prompt) | NON-CANDIDATE | Data fill in `MODE_DESCRIPTIONS`. Not structural. |

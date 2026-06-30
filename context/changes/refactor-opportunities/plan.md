@@ -5,6 +5,8 @@
 
 > Plan only — no code in this document. Each phase is an independently reviewable, reversible commit that **lands green**.
 
+> **✅ Executed — 2026-06-30.** This plan was subsequently **shipped**. All four phases are done: `getOwned(id, userId)` is on the `StorageProvider` (and `DiscussionStorageProvider`) contract and implemented in all backends ([storage/types.ts:40](../../../src/storage/types.ts#L40), [localStorage.ts](../../../src/storage/localStorage.ts), [supabaseStorage.ts](../../../src/storage/supabaseStorage.ts), [discussionStorage.ts](../../../src/storage/discussionStorage.ts)); both route sites use it with the unified `null → 404` shape ([conversations/[id]/route.ts](../../../src/app/api/conversations/[id]/route.ts)); raw `get()` is annotated internal/test-only and is no longer reachable from any route (verified: rg); and `getOwned` is unit-tested on both backends ([localStorage.test.ts](../../../tests/storage/localStorage.test.ts), [discussionStorage.test.ts](../../../tests/storage/discussionStorage.test.ts)) with [idor.spec.ts](../../../tests/e2e/tests/idor.spec.ts) green throughout. **D2 is closed** — analysis became a shipped improvement.
+
 ---
 
 ## Decision & scope

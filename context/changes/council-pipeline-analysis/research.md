@@ -90,7 +90,7 @@ Specific brittleness on this path — each item is named by its **consequence**,
 - *Blast radius:* docs (README, PRD), the UI claim of inspectable "peer evaluation", and any roadmap built on the 3-stage model.
 - *Coupling type:* **connascence of meaning** between docs and code, held together by nothing.
 
-**D2 — Authorization by convention, not by contract.** `[E]`
+**D2 — Authorization by convention, not by contract.** `[E]` _**[✅ Closed 2026-06-30:** the ownership invariant now lives in the contract — `getOwned(id, userId)` ([storage/types.ts:40](../../../src/storage/types.ts#L40)), both route sites migrated, raw `get()` internal-only. See [refactor-opportunities/plan.md](../refactor-opportunities/plan.md).**]**_
 - *Consequence:* `StorageProvider.get(id)` takes **no `userId`** ([storage/types.ts:30](../../../src/storage/types.ts#L30)); it returns *any* user's conversation. Ownership is enforced only by a manual comparison in the route, and the two call-sites guard **differently**: GET does `if (conversation.userId !== session.user.id)` ([route.ts:30](../../../src/app/api/conversations/[id]/route.ts#L30)) while DELETE does `if (conversation && conversation.userId !== ...)` ([route.ts:61](../../../src/app/api/conversations/[id]/route.ts#L61)). A third caller that forgets the check is an IDOR breach.
 - *Missing:* the ownership invariant in the **type signature**. (A regression *test* exists — [tests/e2e/tests/idor.spec.ts](../../../tests/e2e/tests/idor.spec.ts) — so the current two sites are guarded, but the seam invites the next mistake.)
 - *Blast radius:* every present and future consumer of `storage.get()` *(verified: rg — 2 call-sites today, both in `[id]/route.ts`)*.

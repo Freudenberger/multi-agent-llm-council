@@ -12,6 +12,8 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
     "technical analysis council. The agents are evaluating a technical topic from architecture, security, performance, and maintainability perspectives.",
   answer:
     "answer council. The agents are providing a comprehensive answer to a question by combining multiple perspectives and expertise.",
+  swot:
+    "SWOT analysis council. The agents are analyzing a subject across the four SWOT quadrants — strengths, weaknesses, opportunities, threats — to support a strategic recommendation.",
 };
 
 /**

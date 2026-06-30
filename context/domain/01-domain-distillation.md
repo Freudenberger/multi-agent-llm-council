@@ -64,10 +64,10 @@ Scored through a **product lens**, not code elegance:
 | # | Doc says | Code does | Impact |
 | - | -------- | --------- | ------ |
 | **MC-1** _(closed 2026-06-30)_ | "Stage 2: Peer Review & Ranking — agents evaluate each other (anonymized)" `[doc: README:23-25]` | **As of 06-15:** no peer-review stage existed. **Now:** implemented as optional Phase 1.5 `[E: runCouncil.ts:418]`. Was the highest-impact gap; since resolved. |
-| **MC-2** | Judge weighs *anonymized* responses `[E-comment: runCouncil.ts:481]` | Judge sees specialists by **real name + role** `[E: buildPrompts.ts:157]` | The bias-control the docs claim is absent; even the code comment is wrong. |
-| **MC-3** | "Confidence" is a meaningful trust score `[doc]` | Hardcoded constants `[E: runCouncil.ts:336]` | A surfaced number implies analysis that didn't happen — misleads the user. |
-| **MC-4** | A "Conversation" belongs to a user | Storage accessor `get(id)` has no `userId` `[E: storage/types.ts:30]` | Ownership is a convention, not a guarantee — silent IDOR risk. |
-| **MC-5** | The model promises a `swot` analysis mode parity | `swot` has no mode-specific prompt framing `[E: buildPrompts.ts:3]` | SWOT runs with generic framing — thinner than the named modes. |
+| **MC-2** _(resolved 2026-06-30)_ | Judge weighs *anonymized* responses | **Clarified:** anonymization is the **peer-review** phase (Phase 1.5); the **judge** intentionally reads **named** specialists (role context aids synthesis). The stale README "judge reads A/B/C" claim and the misleading code comment are both gone — docs and code now agree. |
+| **MC-3** _(acknowledged 2026-06-30)_ | "Confidence" is a meaningful trust score `[doc]` | The **report** confidence **is** judge-computed (1–5 with justification, [buildPrompts.ts](../../src/prompts/buildPrompts.ts)). Only the **per-specialist** `confidence` is a fixed UI placeholder `[E: runCouncil.ts:320,361]`, not over-claimed in user docs. Intentional placeholder, not a hidden bug. |
+| **MC-4** _(✅ shipped 2026-06-30)_ | A "Conversation" belongs to a user | **Now in the contract:** `getOwned(id, userId)` `[E: storage/types.ts:40]`; raw `get()` internal-only. Was a convention; now a guarantee. See [../changes/refactor-opportunities/plan.md](../changes/refactor-opportunities/plan.md). |
+| **MC-5** _(closed 2026-06-30)_ | The model promises a `swot` analysis mode parity | **Fixed:** `swot` now has a SWOT-specific `MODE_DESCRIPTIONS` entry `[E: buildPrompts.ts:16]` — no longer the generic fallback. |
 
 ---
 
@@ -75,7 +75,7 @@ Scored through a **product lens**, not code elegance:
 
 Scored on **(a) core**, **(b) routed/spread**, **(c) weak/silent**:
 
-1. **UserConversations ownership (MC-4)** — (a) core to multi-user, (b) spread to every `get` caller, (c) **silent breach if forgotten**. → **highest risk-of-silence.** This is the L4 refactor ([../changes/refactor-opportunities/plan.md](../changes/refactor-opportunities/plan.md)).
+1. **UserConversations ownership (MC-4)** — (a) core to multi-user, (b) spread to every `get` caller, (c) **silent breach if forgotten**. → **highest risk-of-silence.** This was the L4 refactor — **✅ now shipped** ([../changes/refactor-opportunities/plan.md](../changes/refactor-opportunities/plan.md)).
 2. **CouncilRun validity (judge/specialist/report rules)** — core and routed, but **already enforced** procedurally and tested; modelling it as an aggregate (doc 2) is *clarity*, not bug-fixing.
 3. **Peer-review / deliberation gap (MC-1)** — highest *product* impact, but it's a **build-or-document decision**, not an invariant to enforce. Routed to roadmap.
 

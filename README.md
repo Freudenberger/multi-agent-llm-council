@@ -31,7 +31,7 @@ flowchart TD
       A2["Agent B"]
       A3["Agent C"]
     end
-    P1 --> J["Phase 2 · Judge synthesis<br/>reads responses anonymized as A/B/C"]
+    P1 --> J["Phase 2 · Judge synthesis<br/>reads named specialist responses (with roles)"]
     J --> R["Final report"]
 ```
 

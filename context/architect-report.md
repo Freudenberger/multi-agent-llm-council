@@ -36,7 +36,7 @@
 
 I enumerated all six debts, classified them (refactor vs guard vs product-decision vs L5), and **ranked by risk-of-silence, not surface ugliness**. The ranking **overturned the obvious pick**: the 748-line regex-heavy judge contract (D3) *looks* worst but degrades safely into a fallback; the quiet **authorization seam (D2)** ranked #1 because a forgotten check is a silent breach.
 
-**Chosen:** move ownership into the storage contract — `getOwned(id, userId)` via **Branch by Abstraction**.
+**Chosen:** move ownership into the storage contract — `getOwned(id, userId)` via **Branch by Abstraction**. _**[✅ Shipped 2026-06-30:** all four phases executed — `getOwned` is on the contract and used by both route sites, raw `get()` is internal/test-only, unit-tested on both backends, `idor.spec.ts` green. D2 closed.**]**_
 **Why it's safe:** the characterization test **already exists** ([idor.spec.ts](../tests/e2e/tests/idor.spec.ts)) — the L4 "test before you touch" rule is satisfied up front; the refactor proceeds under a green oracle.
 **Phases (each lands green):** (1) characterize at unit level; (2) add `getOwned` beside `get`, no callers switched; (3) migrate the 2 route sites, unify the divergent guards; (4) retire the raw accessor — enforcement as a separate lever. Explicit non-goals: not building Stage 2, not touching the judge contract, not the provider ACL.
 

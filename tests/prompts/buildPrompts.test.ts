@@ -49,6 +49,7 @@ describe("buildPrompts", () => {
         "learning",
         "technical",
         "answer",
+        "swot",
       ] as const;
       const expectedSnippets: Record<string, string> = {
         decision: "decision analysis council",
@@ -57,6 +58,8 @@ describe("buildPrompts", () => {
         learning: "learning council",
         technical: "technical analysis council",
         answer: "answer council",
+        // MC-5: swot must get SWOT-specific framing, not the generic fallback.
+        swot: "SWOT analysis council",
       };
 
       for (const mode of modes) {
