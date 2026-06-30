@@ -5,6 +5,8 @@
 
 > Every structural claim below is cited to a source artifact and a `file:line`. The dependency graph is generated with **madge 8.0.0**, structural counts verified with **ast-grep 0.43.0**, and history with `git log` — tool output, not hand-waving.
 
+> **⚠️ Update — 2026-06-30 (post-analysis):** This report is a **2026-06-15 snapshot**. Its headline doc-vs-code finding — that the advertised "Stage 2: Peer Review & Ranking" had **zero implementation** (D1 below) — was **subsequently closed**. Peer review now exists as an **optional Phase 1.5**: `runPeerReview(...)` ([runCouncil.ts:418](../src/core/runCouncil.ts#L418)), `buildPeerReviewSystemPrompt`/`buildPeerReviewUserMessage` ([buildPrompts.ts](../src/prompts/buildPrompts.ts)), tested in [runCouncil.test.ts](../tests/core/runCouncil.test.ts) (off by default, on when `peerReview: true`). The original finding stands as the analysis that **prompted the fix**; passages below that describe peer review as "absent" reflect the 06-15 state, not current code.
+
 ---
 
 ## 1. Project described
@@ -25,7 +27,7 @@
 **Flow (not files):** POST → Zod validate → optional `auth()` (gates *persistence*, not *execution*) → NDJSON stream opens → orchestrate (merge custom agents → normalize judges → assign fallback models → **Phase 1 specialists in parallel** → **Phase 2 judge** with 2× retry, else fallback report) → persist if signed in (evict beyond `MAX_CONVERSATIONS_PER_USER = 5`) → final result line.
 
 **Top debts, verified:**
-- **D1 — the advertised "Stage 2: Peer Review & Ranking" does not exist.** README:23-25 promises anonymized peer evaluation you can "inspect"; the code has **2 phases, no peer-review prompt**. A grep for `peer|ranking|stage 2` across `src/` returns **only de-anonymization comments — zero implementation** *(rg)*. Even the judge isn't anonymized: comments at [runCouncil.ts:481](../src/core/runCouncil.ts#L481) claim "Response A/B/C", but [buildPrompts.ts:157](../src/prompts/buildPrompts.ts#L157) labels specialists by **real name**.
+- **D1 — the advertised "Stage 2: Peer Review & Ranking" does not exist.** _**[Closed 2026-06-30: now implemented as optional Phase 1.5 — see update banner above.]**_ README:23-25 promises anonymized peer evaluation you can "inspect"; the code has **2 phases, no peer-review prompt**. A grep for `peer|ranking|stage 2` across `src/` returns **only de-anonymization comments — zero implementation** *(rg)*. Even the judge isn't anonymized: comments at [runCouncil.ts:481](../src/core/runCouncil.ts#L481) claim "Response A/B/C", but [buildPrompts.ts:157](../src/prompts/buildPrompts.ts#L157) labels specialists by **real name**.
 - **D2 — authorization by convention.** `StorageProvider.get(id)` takes no `userId` ([storage/types.ts:30](../src/storage/types.ts#L30)); ownership is re-checked at **2 route sites with two different guard shapes** ([route.ts:30](../src/app/api/conversations/[id]/route.ts#L30) vs [:61](../src/app/api/conversations/[id]/route.ts#L61)) — a silent IDOR waiting for a third caller.
 - **D3 — the judge contract is a prose↔regex handshake** (headings defined in the prompt, parsed by regex; rename one side → silently empty report).
 - Plus cheap debt: a dead `case "critical-review"` that can't match the id `"criticalReview"`, a half-wired `swot` mode, and a hardcoded `confidence` (only **3 assignment sites**, never computed — *rg*).

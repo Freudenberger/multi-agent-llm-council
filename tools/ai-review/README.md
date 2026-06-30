@@ -4,6 +4,8 @@ An SDK-backed code-review agent that scores a `git diff` against a 5-dimension
 Definition of Done and returns a **schema-validated** verdict, wired into CI so it
 **comments on every PR**. This is the 10xChampion deliverable for Module 5 (M5L2 + M5L3).
 
+> **Official certification path (read this first):** the submission implementation is **`v3`** — the agentic tool-loop reviewer on the **Vercel AI SDK** (`npm run review:v3`). It is the clearest "named SDK, used as an agent" story: the model is given a sandboxed `read_repo_file` tool and pulls surrounding source before scoring. `v2` (single-shot `@openrouter/sdk` scorer) and `v1` (in-house provider seam) are kept as the MVP lineage and for keyless/mock runs, **not** as the primary evidence. All three share one schema ([schema.ts](./schema.ts)) and one rubric ([criteria.md](./criteria.md)).
+
 ## What's here
 
 | File | Role | Lesson |

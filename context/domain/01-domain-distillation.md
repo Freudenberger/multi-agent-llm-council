@@ -5,6 +5,8 @@
 
 > **Evidence legend:** `[E]` confirmed at file:line · `[doc]` from PRD/README · `[GAP]` declared in docs, absent/divergent in code · `[U]` unknown.
 
+> **⚠️ Update — 2026-06-30 (post-analysis):** Dated **2026-06-15** snapshot. The **Peer Review / Ranking `[GAP]`** flagged below (MC-1) was **subsequently closed**: peer review is now an **optional Phase 1.5** (`runPeerReview` [runCouncil.ts:418](../../src/core/runCouncil.ts#L418); `buildPeerReview*` in [buildPrompts.ts](../../src/prompts/buildPrompts.ts); tested in [runCouncil.test.ts](../../tests/core/runCouncil.test.ts)). The `[GAP]` rows below reflect the 06-15 state.
+
 ---
 
 ## Project context
@@ -28,7 +30,7 @@
 | **Final Report** | The structured synthesis (summary, conclusions, agreements, disagreements, risks, recommendations, confidence) | PRD §6 `[doc]` | `FinalReport` `[E: types.ts:53]` |
 | **Conversation** | A stored council run owned by a user | PRD (history) `[doc]` | `StoredConversation = RunCouncilResult & {title, userId}` `[E: storage/types.ts:6]` |
 | **Confidence** | A 1–5 trust score on a response/report | PRD / README `[doc]` | **`[GAP]`** hardcoded `4/1/3`, never computed `[E: runCouncil.ts:336,375; supabaseStorage.ts:122]` |
-| **Peer Review / Ranking** | Agents evaluate each other's answers anonymously before judgment | **README:23-25 `[doc]`** | **`[GAP]` absent** — no such stage or prompt exists `[E: grep peer/ranking → only comments]` |
+| **Peer Review / Ranking** | Agents evaluate each other's answers anonymously before judgment | **README:23-25 `[doc]`** | ~~**`[GAP]` absent**~~ → **[Closed 2026-06-30]** now implemented as optional Phase 1.5 `[E: runCouncil.ts:418]` |
 | **Deliberation** | The collective reasoning process across stages | PRD framing `[doc]` | Partial — parallel independent answers + 1 judge; agents never interact `[E: buildPrompts.ts:36]` |
 | **Fallback Report** | A degraded report built from raw specialist text when the judge can't run | (not in docs) | Code-only concept `[E: runCouncil.ts:567]` — a term the **code** has that the docs don't |
 
@@ -61,7 +63,7 @@ Scored through a **product lens**, not code elegance:
 
 | # | Doc says | Code does | Impact |
 | - | -------- | --------- | ------ |
-| **MC-1** | "Stage 2: Peer Review & Ranking — agents evaluate each other (anonymized)" `[doc: README:23-25]` | No peer-review stage exists; specialists are told *not* to see each other `[E: buildPrompts.ts:36]` | The advertised deliberation step is fiction; users/graders expect behaviour that never runs. Highest-impact gap. |
+| **MC-1** _(closed 2026-06-30)_ | "Stage 2: Peer Review & Ranking — agents evaluate each other (anonymized)" `[doc: README:23-25]` | **As of 06-15:** no peer-review stage existed. **Now:** implemented as optional Phase 1.5 `[E: runCouncil.ts:418]`. Was the highest-impact gap; since resolved. |
 | **MC-2** | Judge weighs *anonymized* responses `[E-comment: runCouncil.ts:481]` | Judge sees specialists by **real name + role** `[E: buildPrompts.ts:157]` | The bias-control the docs claim is absent; even the code comment is wrong. |
 | **MC-3** | "Confidence" is a meaningful trust score `[doc]` | Hardcoded constants `[E: runCouncil.ts:336]` | A surfaced number implies analysis that didn't happen — misleads the user. |
 | **MC-4** | A "Conversation" belongs to a user | Storage accessor `get(id)` has no `userId` `[E: storage/types.ts:30]` | Ownership is a convention, not a guarantee — silent IDOR risk. |

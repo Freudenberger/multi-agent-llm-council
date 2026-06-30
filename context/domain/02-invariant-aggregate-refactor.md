@@ -5,6 +5,8 @@
 
 > This doc models the **core** domain object, `CouncilRun`. Its rules are *already enforced correctly* today, but procedurally — scattered across the 748-line orchestrator. Modelling it as an aggregate is about **clarity and a single enforcer**, not fixing a live bug (the live bug is the ownership invariant, handled in L4).
 
+> **⚠️ Update — 2026-06-30 (post-analysis):** Dated **2026-06-15** snapshot. **INV-5** ("specialists peer-review anonymously") is marked below as *declared only, not in code* — that has since changed: peer review is now an **optional Phase 1.5** (`runPeerReview` [runCouncil.ts:418](../../src/core/runCouncil.ts#L418), tested in [runCouncil.test.ts](../../tests/core/runCouncil.test.ts)). The note at the end ("this aggregate does not introduce peer review") describes the 06-15 design.
+
 ---
 
 ## Discovered invariants
@@ -15,7 +17,7 @@
 | **INV-2** | A run has **exactly one** judge (extra judges demoted to specialists; zero → fallback) | ✔ | low | ✔ `[E: runCouncil.ts:65-105]` |
 | **INV-3** | A **disabled** agent never participates | ✔ | low | ✔ `[E: runCouncil.ts:55]` |
 | **INV-4** | A specialist answers **independently** — never sees peers | ✔ (per current design) | low | ✔ `[E: buildPrompts.ts:36]` |
-| **INV-5** | Specialists **peer-review anonymously** before judgment | — | — | **✘ declared only** (README); not in code — see [01](./01-domain-distillation.md) MC-1 |
+| **INV-5** | Specialists **peer-review anonymously** before judgment | ✔ (opt-in) | low | **[Closed 2026-06-30]** implemented as optional Phase 1.5 `[E: runCouncil.ts:418]` — was "declared only" at 06-15; see [01](./01-domain-distillation.md) MC-1 |
 
 ---
 
@@ -126,4 +128,4 @@ classDiagram
 5. Disabled agent in `customAgents` → never appears in `successful()` (INV-3).
 6. A specialist returns empty/garbage (not an error) → classified `answered` but the judge-empty path still yields a usable report or fallback (guards INV-1 against the parse heuristic).
 
-> Note: this aggregate **does not** introduce peer review (INV-5). That remains a product decision (see [01](./01-domain-distillation.md) MC-1). The aggregate would, however, give peer review a clean home if it is ever built.
+> Note _(06-15 design)_: this aggregate **does not** introduce peer review (INV-5) — at the time a product decision (see [01](./01-domain-distillation.md) MC-1). **[Update 2026-06-30:** peer review was since built as optional Phase 1.5; the aggregate gives it a clean home.**]**

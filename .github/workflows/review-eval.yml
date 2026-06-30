@@ -24,7 +24,7 @@ on:
       model:
         description: "OpenRouter model to gate against (must do reliable structured output)."
         required: false
-        default: "openrouter/free" # cheap-but-reliable structured-output model; override with OPENROUTER_MODEL repo variable if you want a different one
+        default: "openai/gpt-4o-mini" # cheap + reliable for strict JSON; NOT a free tier (those break the schema contract — see eval-results.md). Override via OPENROUTER_MODEL repo variable.
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -58,7 +58,7 @@ jobs:
       - name: Run promptfoo eval as a gate
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          MODEL: ${{ github.event.inputs.model || vars.OPENROUTER_MODEL || 'openrouter/free' }}
+          MODEL: ${{ github.event.inputs.model || vars.OPENROUTER_MODEL || 'openai/gpt-4o-mini' }}
         run: |
           # No key → nothing to run. The eval hits real models; there is no mock.
           if [ -z "$OPENROUTER_API_KEY" ]; then

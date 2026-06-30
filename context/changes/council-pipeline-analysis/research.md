@@ -3,6 +3,8 @@
 **Artifact:** L3 (10xArchitect path) · **Change-id:** `council-pipeline-analysis` · **Date:** 2026-06-15
 **Prior:** [context/map/repo-map.md](../../map/repo-map.md) — the map flagged `runCouncil.ts`, the prompt contract, and the storage authorization seam as risk zones. This research drills into the single most central flow: **what happens when a user runs a council.**
 
+> **⚠️ Update — 2026-06-30 (post-analysis):** This L3 research is a **2026-06-15 snapshot**. Its top finding (D1) — that the advertised "Stage 2 / peer review" had **zero implementation** — was **subsequently closed**: peer review now runs as an **optional Phase 1.5** (`runPeerReview` [runCouncil.ts:418](../../../src/core/runCouncil.ts#L418); `buildPeerReview*` in [buildPrompts.ts](../../../src/prompts/buildPrompts.ts); tested in [runCouncil.test.ts](../../../tests/core/runCouncil.test.ts)). Passages below calling it "vaporware"/"absent" reflect the 06-15 state, not current code.
+>
 > **Intent:** Understand how the council run *actually* works end-to-end and name the technical debt on that path. Exploration only — no code changes, no refactor decision (that is L4).
 >
 > **Evidence legend:** `[E]` evidence (read at file:line) · `[I]` inference · `[U]` unknown/gap. Counts marked `(verified: sg)` were confirmed structurally with **ast-grep 0.43.0**; `(verified: rg)` with ripgrep. The dependency facts come from **madge 8.0.0**.
@@ -82,7 +84,7 @@ Specific brittleness on this path — each item is named by its **consequence**,
 
 ### TRUE debt (silent, no guard)
 
-**D1 — Doc-vs-code: the missing "Stage 2 peer review".** `[E]`
+**D1 — Doc-vs-code: the missing "Stage 2 peer review".** `[E]` _**[Closed 2026-06-30: implemented as optional Phase 1.5 — see update banner at top.]**_
 - *Consequence:* the README, PRD framing, and architecture story promise a deliberation step (anonymized peer ranking) that does not run. A reviewer/grader following the docs looks for behaviour that isn't there; a future contributor may "fix" the orchestrator to match a stage that was never built.
 - *Missing:* either the feature, or honest docs. No test asserts a peer-review step (none can — it doesn't exist).
 - *Blast radius:* docs (README, PRD), the UI claim of inspectable "peer evaluation", and any roadmap built on the 3-stage model.

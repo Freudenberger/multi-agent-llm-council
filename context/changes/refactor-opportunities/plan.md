@@ -14,7 +14,7 @@
 **Target shape:** an ownership-aware accessor — `getOwned(id, userId): Promise<StoredConversation | null>` — that returns `null` for both *not found* and *not owned* (indistinguishable to the caller, which closes the enumeration side-channel). Route handlers translate `null` → 404/403 in one consistent place. The raw `get(id)` is retired from route code via **Branch by Abstraction**.
 
 ### What we are NOT doing (explicit)
-- **Not** implementing the missing "Stage 2 peer review" (D1) — separate product decision, routed to `/10x-roadmap`.
+- **Not** implementing the missing "Stage 2 peer review" (D1) — separate product decision, routed to `/10x-roadmap`. _**[Update 2026-06-30:** that decision was since made and peer review shipped as optional Phase 1.5 — out of scope for *this* L4 plan, which is about the D2 authorization refactor.**]**_
 - **Not** touching the judge prose↔regex contract (D3) — ranked #2, deferred.
 - **Not** building the provider ACL (D7) — that's the L5 artifact.
 - **Not** adding rate limiting or changing auth/session mechanics — out of scope.

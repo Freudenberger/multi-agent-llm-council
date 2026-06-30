@@ -3,6 +3,8 @@
 **Artifact:** L4, exploration stage (10xArchitect path) · **Change-id:** `refactor-opportunities` · **Date:** 2026-06-15
 **Prior:** [council-pipeline-analysis/research.md](../council-pipeline-analysis/research.md) (debt D1–D6 taken as proven) + [repo-map.md](../../map/repo-map.md).
 
+> **⚠️ Update — 2026-06-30 (post-analysis):** Dated **2026-06-15** snapshot. **D1** ("Stage 2 peer review doesn't exist") was routed to a product decision below; that decision has since been made and **shipped** — peer review is now an optional Phase 1.5 (`runPeerReview` [runCouncil.ts:418](../../../src/core/runCouncil.ts#L418)). The D1 rows below describe the 06-15 state. The ranking's actual winner (D2, authorization) is unaffected.
+>
 > **Intent:** Decide *which* of the debt items are worth fixing with a structural refactor, in what order. **Exploration only — no code changes, no decision.** Output is a ranking with trade-offs for a human to choose from. A separate session ([plan.md](./plan.md)) plans and implements the winner.
 >
 > **Evidence legend:** `[E]` file:line · `[I]` inference · `[U]` unknown. Counts marked *(rg)* verified with ripgrep.
