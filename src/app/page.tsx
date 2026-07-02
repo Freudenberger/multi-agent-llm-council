@@ -182,8 +182,23 @@ export default function Home() {
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [preferredModels, setPreferredModels] = useState<string[]>([]);
+  const [mockMode, setMockMode] = useState(false);
+  const [hasOwnKey, setHasOwnKey] = useState(false);
 
   const { data: session } = useSession();
+
+  // Is the server defaulting to the mock provider? If so, responses are
+  // simulated unless the user supplies their own API key (see createProvider).
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/version")
+      .then((r) => r.json())
+      .then((d: { mockMode?: boolean }) => {
+        if (!cancelled) setMockMode(Boolean(d.mockMode));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Fetch free models from OpenRouter on mount
   useEffect(() => {
@@ -216,15 +231,21 @@ export default function Home() {
     let cancelled = false;
     const loadPreferredModels = async () => {
       if (!session?.user?.id) {
-        if (!cancelled) setPreferredModels([]);
+        if (!cancelled) { setPreferredModels([]); setHasOwnKey(false); }
         return;
       }
       try {
         const res = await fetch("/api/user/settings");
-        const data: { preferredModels?: string[] } = await res.json();
-        if (!cancelled) setPreferredModels(data.preferredModels ?? []);
+        const data: {
+          preferredModels?: string[];
+          settings?: Record<string, { apiKey?: string }>;
+        } = await res.json();
+        if (!cancelled) {
+          setPreferredModels(data.preferredModels ?? []);
+          setHasOwnKey(Object.keys(data.settings ?? {}).length > 0);
+        }
       } catch {
-        if (!cancelled) setPreferredModels([]);
+        if (!cancelled) { setPreferredModels([]); setHasOwnKey(false); }
       }
     };
     loadPreferredModels();
@@ -326,6 +347,34 @@ export default function Home() {
       {/* Main Content */}
       <main id="main-content" tabIndex={-1} className="flex-1 px-6 py-8 focus:outline-none">
         <div className="max-w-5xl mx-auto space-y-8">
+          {/* Demo/mock notice: server is on the mock provider and this user has
+              no key of their own, so responses are simulated. */}
+          {mockMode && !hasOwnKey && (
+            <div
+              role="status"
+              className="print:hidden rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200"
+            >
+              <span className="font-medium">🧪 Demo mode:</span> responses are
+              simulated by a mock provider, not a real LLM.{" "}
+              {session?.user ? (
+                <>
+                  Add your own API key in{" "}
+                  <Link href="/settings" className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100">
+                    Settings
+                  </Link>{" "}
+                  to get real responses.
+                </>
+              ) : (
+                <>
+                  <Link href="/login" className="underline font-medium hover:text-amber-900 dark:hover:text-amber-100">
+                    Log in
+                  </Link>{" "}
+                  and add your own API key to get real responses.
+                </>
+              )}
+            </div>
+          )}
+
           {/* Input Section — two column layout */}
           <section className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 print:hidden">
             {/* Left column: input + mode selector + run */}
