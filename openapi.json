@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Multi-Agent LLM Council API",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "description": "HTTP API for the Multi-Agent LLM Council. Authentication is cookie-based (NextAuth session). `/api/council` and `/api/discuss` stream NDJSON (one JSON object per line) rather than returning a single body. The `version` here tracks package.json; the live value is served by GET /api/version."
   },
   "servers": [{ "url": "/", "description": "Same-origin (Next.js app)" }],

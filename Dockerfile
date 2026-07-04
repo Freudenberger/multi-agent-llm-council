@@ -15,7 +15,12 @@ COPY package.json package-lock.json ./
 # Pin npm to the major version that generated package-lock.json (v11). node:22-alpine
 # ships npm 10, which resolves the transitive tree differently (e.g. gcp-metadata,
 # @swc/helpers) and makes `npm ci` reject the lockfile as out of sync.
-RUN npm i -g npm@11 && npm ci --ignore-scripts
+#
+# --legacy-peer-deps: the repo's .npmrc sets this (see .npmrc), but the deps stage
+# only copies package.json + package-lock.json, so npm ci here won't pick it up.
+# We depend on ai@^7 while @openrouter/ai-sdk-provider@2.10.0 still declares a
+# peer of ai@^6; without this flag npm ci fails with ERESOLVE. Keep in sync with .npmrc.
+RUN npm i -g npm@11 && npm ci --ignore-scripts --legacy-peer-deps
 
 # ---- builder: produce the standalone Next.js output ----
 FROM node:22-alpine AS builder
