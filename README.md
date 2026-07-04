@@ -151,7 +151,12 @@ npm test
 
 ## Docker
 
-The app ships as a self-contained image built from the multi-stage [Dockerfile](Dockerfile) (Next.js `standalone` output, runs non-root). Run it locally:
+The app ships as a self-contained image built from the multi-stage [Dockerfile](Dockerfile) (Next.js `standalone` output, runs non-root). 
+
+> [!TIP]
+> Images You can pull from Docker Hub: [jaktestowac/llm-council](https://hub.docker.com/r/jaktestowac/llm-council).
+
+Run it locally:
 
 ```bash
 docker build -t llm-council .
@@ -289,3 +294,4 @@ llm-council/
 ├── tests/               # Vitest test suite
 └── tests/e2e/           # Playwright end-to-end tests
 ```
+
